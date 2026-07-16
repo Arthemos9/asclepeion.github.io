@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Asclépieion — Registre médical</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#24261F; --ink-soft:#5B584C;
+    --stone:#E7E4D6; --stone-line:#CDC7B2; --card:#F8F5EB;
+    --verdigris:#3F6259; --verdigris-dk:#28413A; --verdigris-lt:#DCE7E2;
+    --ochre:#A9803F; --ochre-lt:#F1E5CC;
+    --oxide:#8C4A38; --oxide-lt:#F3E0D8;
+    --teal-lt:#CFE1DA; --neutral-lt:#E4E1D3;
+    --danger-bg:#F6DEDA; --danger-tx:#7A2E20;
+    --ok-bg:#DCE9DC; --ok-tx:#2E5334;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--stone);color:var(--ink);font-family:'IBM Plex Sans', sans-serif;font-size:15px;line-height:1.5;}
+  .shell{max-width:1080px;margin:0 auto;padding:28px 24px 80px;}
+  .hidden{display:none !important;}
+
+  .loading-overlay{position:fixed;inset:0;background:rgba(36,38,31,.55);display:flex;align-items:center;justify-content:center;z-index:9999;}
+  .loading-box{background:var(--card);border:1px solid var(--stone-line);border-radius:10px;padding:30px 40px;text-align:center;min-width:240px;}
+  .spinner{width:32px;height:32px;border:3px solid var(--stone-line);border-top-color:var(--verdigris);border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-box p{font-family:'Source Serif 4',serif;font-style:italic;color:var(--verdigris-dk);margin:0;font-size:14px;}
+
+  .login-wrap{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+  .login-card{max-width:600px;width:100%;background:var(--card);border:1px solid var(--stone-line);border-radius:10px;padding:34px 32px;text-align:center;}
+  .login-card .emblem-lg{width:52px;height:52px;margin:0 auto 12px;color:var(--verdigris-dk);}
+  .login-card h1{font-family:'Cinzel',serif;font-weight:600;font-size:23px;letter-spacing:2px;margin:0 0 4px;color:var(--verdigris-dk);}
+  .login-card p.sub{font-family:'Source Serif 4',serif;font-style:italic;color:var(--ink-soft);margin:0 0 26px;font-size:14px;}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .role-card{background:#fff;border:1px solid var(--stone-line);border-radius:8px;padding:18px 14px;cursor:pointer;text-align:left;font-family:inherit;}
+  .role-card:hover{border-color:var(--verdigris);}
+  .role-card.selected{border-color:var(--verdigris);background:var(--verdigris-lt);}
+  .role-card b{display:block;font-family:'Source Serif 4',serif;font-size:16px;color:var(--verdigris-dk);margin-bottom:4px;}
+  .role-card span{font-size:12.5px;color:var(--ink-soft);}
+  .name-step{margin-top:20px;display:flex;gap:8px;text-align:left;}
+  .name-step input{flex:1;}
+
+  .session-bar{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft);padding-bottom:10px;}
+  .session-bar b{color:var(--ink);}
+  .role-tag{font-family:'IBM Plex Mono',monospace;background:var(--verdigris-lt);color:var(--verdigris-dk);padding:2px 9px;border-radius:3px;}
+  .session-bar .btn{margin-left:auto;}
+
+  .topbar{display:flex;align-items:center;gap:16px;padding-bottom:20px;margin-bottom:22px;border-bottom:2px solid var(--stone-line);}
+  .emblem{width:46px;height:46px;flex:none;color:var(--verdigris-dk);}
+  .brand h1{font-family:'Cinzel',serif;font-weight:600;font-size:26px;letter-spacing:2.5px;margin:0;color:var(--verdigris-dk);}
+  .brand p{margin:2px 0 0;font-family:'Source Serif 4',serif;font-style:italic;color:var(--ink-soft);font-size:14px;}
+  .stat-pill{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--verdigris-dk);background:var(--verdigris-lt);border:1px solid var(--stone-line);border-radius:3px;padding:6px 12px;white-space:nowrap;}
+
+  .tabs{display:flex;gap:2px;margin-bottom:24px;border-bottom:1px solid var(--stone-line);flex-wrap:wrap;}
+  .tab{font-family:'Cinzel',serif;font-size:12.5px;letter-spacing:1.2px;padding:11px 18px;background:none;border:none;cursor:pointer;color:var(--ink-soft);border-bottom:2.5px solid transparent;transition:color .15s;}
+  .tab:hover{color:var(--verdigris-dk);}
+  .tab.active{color:var(--verdigris-dk);border-bottom-color:var(--verdigris);}
+
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .card{background:var(--card);border:1px solid var(--stone-line);border-radius:6px;padding:22px 24px;margin-bottom:20px;}
+  .card h2{font-family:'Source Serif 4',serif;font-style:italic;font-weight:600;font-size:18px;color:var(--verdigris-dk);margin:0 0 4px;}
+  .card .subtitle{color:var(--ink-soft);font-size:13px;margin:0 0 18px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;}
+  .grid.g3{grid-template-columns:1fr 1fr 1fr;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .field.full{grid-column:1/-1;}
+  .field label{font-size:12.5px;font-weight:500;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  input, select, textarea{font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--stone-line);border-radius:4px;padding:9px 10px;width:100%;}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--verdigris);outline-offset:0;border-color:var(--verdigris);}
+  textarea{resize:vertical;min-height:56px;}
+  input[type=file]{padding:7px 8px;font-size:13px;}
+
+  .btn{font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:500;padding:10px 18px;border-radius:4px;border:1px solid var(--verdigris);background:var(--verdigris);color:#fff;cursor:pointer;}
+  .btn:hover{background:var(--verdigris-dk);border-color:var(--verdigris-dk);}
+  .btn.ghost{background:transparent;color:var(--verdigris-dk);}
+  .btn.ghost:hover{background:var(--verdigris-lt);}
+  .btn.small{padding:6px 12px;font-size:12.5px;}
+  .btn.warn{background:var(--oxide);border-color:var(--oxide);}
+  .btn.warn:hover{background:#6E3A2C;}
+
+  .banner{padding:11px 14px;border-radius:4px;font-size:13.5px;margin-bottom:16px;}
+  .banner.ok{background:var(--ok-bg);color:var(--ok-tx);}
+  .banner.err{background:var(--danger-bg);color:var(--danger-tx);}
+
+  .search-row{display:flex;gap:10px;margin-bottom:16px;}
+  .search-row input{flex:1;}
+
+  .patient-row{display:flex;align-items:center;gap:14px;padding:9px 14px;border:1px solid var(--stone-line);border-radius:4px;margin-bottom:8px;cursor:pointer;background:#fff;}
+  .patient-row:hover{border-color:var(--verdigris);}
+  .patient-row .avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;}
+  .patient-row .avatar-ph{width:34px;height:34px;border-radius:50%;background:var(--verdigris-lt);color:var(--verdigris-dk);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:13px;flex:none;}
+  .patient-row .name{font-weight:600;flex:1;}
+  .patient-row .meta{font-size:12.5px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
+
+  .badge{font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px;}
+  .badge.st-enfant{background:var(--ochre-lt);color:#5C4420;}
+  .badge.st-ado{background:var(--verdigris-lt);color:var(--verdigris-dk);}
+  .badge.st-jeune{background:var(--teal-lt);color:var(--verdigris-dk);}
+  .badge.st-adulte{background:var(--neutral-lt);color:var(--ink-soft);}
+
+  .hosp-badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap;}
+  .hosp-badge.actif{background:var(--oxide-lt);color:var(--oxide);}
+  .hosp-badge.termine{background:var(--neutral-lt);color:var(--ink-soft);}
+  .hosp-badge.ambulatoire{background:var(--verdigris-lt);color:var(--verdigris-dk);}
+
+  .stele{position:relative;background:var(--verdigris-dk);color:#fff;border-radius:14px 14px 5px 5px;padding:20px 24px 16px;margin-bottom:18px;}
+  .stele::before{content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%);width:46px;height:16px;background:var(--verdigris-dk);border-radius:14px 14px 0 0;}
+  .stele-flex{display:flex;gap:16px;align-items:center;}
+  .stele-photo{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);flex:none;}
+  .stele-photo-ph{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:22px;flex:none;}
+  .stele .name{font-family:'Cinzel',serif;font-size:20px;letter-spacing:1px;margin:0;}
+  .stele .id{font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:.75;margin-top:3px;}
+  .stele .rowmeta{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;font-size:13px;align-items:center;}
+  .stele .rowmeta span b{font-weight:600;}
+
+  table.journal{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.journal th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);border-bottom:1px solid var(--stone-line);padding:6px 8px;}
+  table.journal td{padding:8px;border-bottom:1px solid var(--stone-line);vertical-align:top;}
+  .jtype{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--verdigris-lt);color:var(--verdigris-dk);white-space:nowrap;}
+  .jtype.soin{background:var(--ochre-lt);color:#5C4420;}
+
+  .anam-card{border-left:3px solid var(--ochre);background:var(--ochre-lt);padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:10px;}
+  .anam-card .date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5C4420;}
+  .anam-card h4{margin:4px 0 6px;font-family:'Source Serif 4',serif;font-size:14.5px;}
+  .anam-card p{margin:3px 0;font-size:13.5px;}
+
+  .hosp-card{border-left:3px solid var(--oxide);background:var(--oxide-lt);padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:10px;font-size:13.5px;}
+  .hosp-card .date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--oxide);}
+
+  .doc-card{background:#FBF9F1;border:1px solid var(--stone-line);border-radius:4px;padding:18px 20px;margin-bottom:14px;}
+  .doc-card .doc-head{display:flex;justify-content:space-between;border-bottom:1px solid var(--stone-line);padding-bottom:8px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);}
+  .doc-card h4{margin:0 0 10px;font-family:'Source Serif 4',serif;font-style:italic;color:var(--verdigris-dk);font-size:16px;}
+  .doc-card .line{margin:5px 0;font-size:14px;font-family:'Source Serif 4',serif;}
+  .doc-card .line b{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-style:normal;}
+  .doc-card .sig{margin-top:12px;text-align:right;font-size:12.5px;color:var(--ink-soft);font-family:'IBM Plex Sans',sans-serif;}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--ink-soft);border:1px dashed var(--stone-line);border-radius:6px;}
+  .empty h3{font-family:'Source Serif 4',serif;font-style:italic;color:var(--verdigris-dk);margin:0 0 6px;}
+
+  .picker-box{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .picker-box .field{flex:1;min-width:180px;margin-bottom:0;}
+  .suggest-list{border:1px solid var(--stone-line);border-radius:4px;margin-top:6px;background:#fff;max-height:180px;overflow-y:auto;}
+  .suggest-item{padding:8px 12px;cursor:pointer;font-size:13.5px;border-bottom:1px solid var(--stone-line);}
+  .suggest-item:last-child{border-bottom:none;}
+  .suggest-item:hover{background:var(--verdigris-lt);}
+  .note{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+  .readonly-note{font-size:12.5px;color:var(--ink-soft);font-style:italic;padding:6px 0 2px;}
+  hr.sep{border:none;border-top:1px solid var(--stone-line);margin:22px 0;}
+
+  .danger-zone{border-color:var(--oxide-lt);}
+  .danger-text{color:var(--oxide);font-size:13.5px;margin-bottom:10px;}
+
+  .proto-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .proto-tab{font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:20px;border:1px solid var(--stone-line);background:#fff;color:var(--ink-soft);cursor:pointer;}
+  .proto-tab.active{background:var(--verdigris);color:#fff;border-color:var(--verdigris);}
+  .proto-card{background:#fff;border:1px solid var(--stone-line);border-radius:6px;margin-bottom:10px;overflow:hidden;}
+  .proto-head{width:100%;text-align:left;background:none;border:none;padding:14px 18px;font-family:'Source Serif 4',serif;font-size:15px;color:var(--verdigris-dk);cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+  .proto-head:hover{background:var(--verdigris-lt);}
+  .proto-head .chev{transition:transform .2s;color:var(--ink-soft);}
+  .proto-head.open .chev{transform:rotate(90deg);}
+  .proto-body{padding:0 18px 16px;font-size:13.5px;}
+  .proto-def{font-style:italic;color:var(--ink-soft);margin:0 0 10px;}
+  .proto-body ul{margin:0 0 10px;padding-left:20px;}
+  .proto-body li{margin-bottom:5px;}
+  .proto-alert{color:var(--oxide);font-weight:500;margin:0;}
+
+  .staff-card{background:#fff;border:1px solid var(--stone-line);border-radius:6px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;}
+  .staff-card .staff-name{font-weight:600;flex:1;}
+  .staff-card .staff-meta{font-size:12.5px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
+  .grade-badge{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--verdigris-lt);color:var(--verdigris-dk);white-space:nowrap;}
+
+  .online-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+  .online-chip{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--stone-line);border-radius:20px;padding:5px 12px;font-size:12.5px;}
+  .online-dot{width:8px;height:8px;border-radius:50%;background:#4CAF50;flex:none;}
+  .online-count{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+
+  .stock-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--stone-line);border-radius:4px;margin-bottom:8px;background:#fff;flex-wrap:wrap;}
+  .stock-row.low{border-color:var(--oxide);background:var(--oxide-lt);}
+  .stock-qty-btn{width:26px;height:26px;border-radius:4px;border:1px solid var(--stone-line);background:#fff;cursor:pointer;font-weight:600;}
+  .stock-qty-btn:hover{background:var(--verdigris-lt);}
+  .stock-name{font-weight:600;flex:1;min-width:120px;}
+  .stock-cat{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--verdigris-lt);color:var(--verdigris-dk);white-space:nowrap;}
+  .stock-qty{font-family:'IBM Plex Mono',monospace;font-size:13px;min-width:70px;text-align:center;}
+  .low-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--oxide);color:#fff;}
+
+  .rdv-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--stone-line);border-radius:4px;margin-bottom:8px;background:#fff;flex-wrap:wrap;}
+  .rdv-when{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-soft);min-width:130px;}
+  .rdv-statut{font-size:11px;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .rdv-statut.avenir{background:var(--verdigris-lt);color:var(--verdigris-dk);}
+  .rdv-statut.realise{background:var(--neutral-lt);color:var(--ink-soft);}
+  .rdv-statut.annule{background:var(--oxide-lt);color:var(--oxide);}
+
+  .ext-card{background:#fff;border:1px solid var(--stone-line);border-radius:6px;padding:14px 18px;margin-bottom:10px;}
+  .ext-card .ext-head{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);margin-bottom:6px;}
+
+  .statut-badge{font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .statut-badge.suivi{background:var(--verdigris-lt);color:var(--verdigris-dk);}
+  .statut-badge.hospitalise{background:var(--oxide-lt);color:var(--oxide);}
+  .statut-badge.dcd{background:#2A2A28;color:#EDE9DD;}
+
+  .exam-chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  .exam-chip{font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 15px;border-radius:6px;border:1px solid var(--stone-line);background:#fff;color:var(--ink);cursor:pointer;}
+  .exam-chip:hover{border-color:var(--verdigris);background:var(--verdigris-lt);}
+
+  .exam-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--stone-line);border-radius:4px;margin-bottom:8px;background:#fff;flex-wrap:wrap;}
+  .exam-row .exam-type{font-weight:600;min-width:140px;}
+  .prio-badge{font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .prio-badge.urgente{background:var(--oxide-lt);color:var(--oxide);}
+  .prio-badge.normale{background:var(--verdigris-lt);color:var(--verdigris-dk);}
+  .prio-badge.differee{background:var(--neutral-lt);color:var(--ink-soft);}
+  .exam-statut{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--ochre-lt);color:#5C4420;white-space:nowrap;}
+  .exam-statut.realise{background:var(--neutral-lt);color:var(--ink-soft);}
+
+  @media (max-width:640px){
+    .grid, .grid.g3{grid-template-columns:1fr;}
+    .role-grid{grid-template-columns:1fr;}
+    .stat-pill{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="loading-overlay hidden">
+  <div class="loading-box"><div class="spinner"></div><p id="loadingText">Traitement…</p></div>
+</div>
+
+<div class="shell" id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-card">
+      <svg class="emblem-lg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="32" y1="6" x2="32" y2="58" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="32" cy="10" r="4" fill="currentColor"/>
+        <path d="M32 14 C 18 20, 18 30, 32 34 C 46 38, 46 48, 32 54" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <line x1="20" y1="52" x2="44" y2="52" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <h1>ASCLÉPIEION</h1>
+      <p class="sub">Registre médical de la Colonie des Sang-Mêlés</p>
+      <div class="role-grid" style="grid-template-columns:1fr 1fr 1fr;">
+        <button class="role-card" data-role="medecin"><b>Médecin</b><span>Iatros — accès complet au dossier</span></button>
+        <button class="role-card" data-role="infirmier"><b>Infirmier</b><span>Nosokomos — accès restreint, hors confidentiel</span></button>
+        <button class="role-card" data-role="secretaire"><b>Secrétaire médical</b><span>Rendez-vous et personnel, sans accès clinique</span></button>
+      </div>
+      <div class="name-step hidden" id="nameStep">
+        <input id="loginName" type="text" placeholder="Votre nom" />
+        <button class="btn" id="btnEnter">Entrer</button>
+      </div>
+      <p class="note" id="loginNote" style="margin-top:16px;"></p>
+    </div>
+  </div>
+</div>
+
+<div class="shell hidden" id="appShell">
+
+  <div class="session-bar">
+    <span>Poste : <span class="role-tag" id="roleTagLabel">—</span></span>
+    <span>Connecté : <b id="userLabel">—</b></span>
+    <span class="online-count"><span class="online-dot"></span><span id="onlineCountLabel">—</span></span>
+    <button class="btn ghost small" id="btnLogout">Changer de poste</button>
+  </div>
+
+  <div class="topbar">
+    <svg class="emblem" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <line x1="32" y1="6" x2="32" y2="58" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="32" cy="10" r="4" fill="currentColor"/>
+      <path d="M32 14 C 18 20, 18 30, 32 34 C 46 38, 46 48, 32 54" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <line x1="20" y1="52" x2="44" y2="52" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <div class="brand"><h1>ASCLÉPIEION</h1><p>Registre médical de la Colonie des Sang-Mêlés</p></div>
+    <div class="stat-pill" id="statPill">— dossiers</div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="nouveau" data-roles="medecin" role="tab">Nouveau dossier</button>
+    <button class="tab" data-tab="recherche" data-roles="medecin,infirmier" role="tab">Rechercher un dossier</button>
+    <button class="tab" data-tab="anamnese" data-roles="medecin" role="tab">Anamnèse</button>
+    <button class="tab" data-tab="documents" data-roles="medecin,infirmier" role="tab">Documents</button>
+    <button class="tab" data-tab="soins" data-roles="medecin,infirmier" role="tab">Soins infirmiers</button>
+    <button class="tab" data-tab="protocoles" data-roles="medecin,infirmier" role="tab">Protocoles</button>
+    <button class="tab" data-tab="personnel" data-roles="medecin,infirmier,secretaire" role="tab">Personnel</button>
+    <button class="tab" data-tab="generaliste" data-roles="medecin,secretaire" role="tab">Médecin généraliste</button>
+    <button class="tab" data-tab="pharmacie" data-roles="medecin,infirmier" role="tab">Pharmacie</button>
+    <button class="tab" data-tab="examens" data-roles="medecin,infirmier" role="tab">Examens</button>
+  </div>
+
+  <div id="globalBanner"></div>
+
+  <div class="panel active" id="panel-nouveau">
+    <div class="card">
+      <h2>Identification du patient</h2>
+      <p class="subtitle">Ouverture d'un nouveau dossier au registre de l'Asclépieion.</p>
+      <div class="grid">
+        <div class="field"><label>Nom complet</label><input id="n-nom" type="text" placeholder="Nom du patient" /></div>
+        <div class="field"><label>Âge</label><input id="n-age" type="number" min="0" placeholder="Âge" /></div>
+        <div class="field"><label>Statut</label><select id="n-statut"><option>Enfant</option><option>Adolescent</option><option>Jeune adulte</option><option>Adulte</option></select></div>
+        <div class="field"><label>Cabane / parent divin</label><input id="n-cabane" type="text" placeholder="Ex. Athéna, non-revendiqué…" /></div>
+        <div class="field"><label>Date d'admission</label><input id="n-date" type="date" /></div>
+        <div class="field"><label>Tuteur de cabane référent</label><input id="n-tuteur" type="text" /></div>
+        <div class="field"><label>Médecin traitant</label><input id="n-medecintraitant" type="text" placeholder="Nom de l'Iatros référent" /></div>
+        <div class="field full"><label>Contact d'urgence</label><input id="n-urgence" type="text" placeholder="Nom, moyen de contact" /></div>
+        <div class="field full">
+          <label>Photo d'identité (optionnel)</label>
+          <input type="file" id="n-photo" accept="image/*" />
+          <div id="n-photo-preview" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>A. Antécédents — médecine mortelle</h2>
+      <div class="grid">
+        <div class="field"><label>Groupe sanguin</label><select id="n-sang"><option>Inconnu</option><option>O+</option><option>O-</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option></select></div>
+        <div class="field"><label>Allergies connues</label><input id="n-allergies" type="text" /></div>
+        <div class="field full"><label>Maladies chroniques</label><textarea id="n-chroniques"></textarea></div>
+        <div class="field full"><label>Antécédents chirurgicaux</label><textarea id="n-chirurgie"></textarea></div>
+        <div class="field full"><label>Traitement mortel en cours</label><textarea id="n-traitement"></textarea></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>B. Antécédents — médecine divine</h2>
+      <div class="grid">
+        <div class="field"><label>Sensibilité à l'ambroisie / nectar</label><select id="n-sensibilite"><option>Normale</option><option>Élevée</option><option>Inconnue</option></select></div>
+        <div class="field"><label>Réactions antérieures</label><input id="n-reactions" type="text" /></div>
+        <div class="field full"><label>Résistance / vulnérabilité liée à l'ascendance</label><textarea id="n-resistance"></textarea></div>
+        <div class="field full"><label>Notes de l'Iatros référent</label><textarea id="n-notes"></textarea></div>
+      </div>
+      <button class="btn" id="btnCreate">Créer le dossier</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-recherche">
+    <div class="card">
+      <h2>Rechercher un dossier</h2>
+      <p class="subtitle">Par nom, cabane ou numéro de dossier.</p>
+      <div class="search-row"><input id="searchInput" type="text" placeholder="Nom, cabane ou identifiant…" /></div>
+      <div id="searchResults"></div>
+    </div>
+    <div id="dossierDetail"></div>
+  </div>
+
+  <div class="panel" id="panel-anamnese">
+    <div class="card">
+      <h2>Anamnèse d'un nouvel arrivant</h2>
+      <p class="subtitle">Étude du cas d'un patient qui vient d'arriver à la Colonie — sélectionnez un dossier existant ou créez un accueil minimal.</p>
+      <div class="picker-box">
+        <div class="field">
+          <label>Rechercher un patient</label>
+          <input id="anamSearch" type="text" placeholder="Nom du patient…" autocomplete="off" />
+          <div class="suggest-list hidden" id="anamSuggest"></div>
+        </div>
+        <button class="btn ghost small" id="btnQuickNew">+ Nouvel arrivant (accueil rapide)</button>
+      </div>
+      <div class="hidden" id="quickNewBox" style="margin-top:16px;">
+        <hr class="sep" />
+        <div class="grid g3">
+          <div class="field"><label>Nom</label><input id="q-nom" type="text" /></div>
+          <div class="field"><label>Âge approximatif</label><input id="q-age" type="number" /></div>
+          <div class="field"><label>Cabane / parent divin (si connu)</label><input id="q-cabane" type="text" /></div>
+          <div class="field"><label>Statut</label><select id="q-statut"><option>Enfant</option><option selected>Adolescent</option><option>Jeune adulte</option><option>Adulte</option></select></div>
+        </div>
+        <button class="btn small" id="btnQuickCreate">Créer et commencer l'anamnèse</button>
+      </div>
+    </div>
+    <div id="anamPatientBox"></div>
+  </div>
+
+  <div class="panel" id="panel-documents">
+    <div class="card">
+      <h2>Documents médicaux</h2>
+      <p class="subtitle">Ordonnances, certificats et comptes-rendus liés à un patient.</p>
+      <div class="picker-box">
+        <div class="field">
+          <label>Rechercher un patient</label>
+          <input id="docSearch" type="text" placeholder="Nom du patient…" autocomplete="off" />
+          <div class="suggest-list hidden" id="docSuggest"></div>
+        </div>
+      </div>
+    </div>
+    <div id="docPatientBox"></div>
+  </div>
+
+  <div class="panel" id="panel-soins">
+    <div class="card">
+      <h2>Soins infirmiers</h2>
+      <p class="subtitle">Administration de traitement, soins quotidiens, observations.</p>
+      <div class="picker-box">
+        <div class="field">
+          <label>Rechercher un patient</label>
+          <input id="soinsSearch" type="text" placeholder="Nom du patient…" autocomplete="off" />
+          <div class="suggest-list hidden" id="soinsSuggest"></div>
+        </div>
+      </div>
+    </div>
+    <div id="soinsPatientBox"></div>
+  </div>
+
+  <div class="panel" id="panel-protocoles">
+    <div class="card">
+      <h2>Protocoles de prise en charge</h2>
+      <p class="subtitle">Fiches pratiques de référence pour l'équipe de l'Asclépieion.</p>
+      <div class="proto-nav" id="protoNav"></div>
+      <div id="protoList"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-personnel">
+    <div class="card">
+      <h2>Qui est en ligne</h2>
+      <div class="online-list" id="onlineList"></div>
+    </div>
+    <div class="card">
+      <h2>Personnel de l'Asclépieion</h2>
+      <p class="subtitle">Registre des membres de l'équipe médicale et administrative.</p>
+      <div id="staffCreateBox">
+        <div class="grid g3">
+          <div class="field"><label>Prénom</label><input id="st-prenom" type="text" /></div>
+          <div class="field"><label>Nom</label><input id="st-nom" type="text" /></div>
+          <div class="field"><label>Âge</label><input id="st-age" type="number" /></div>
+          <div class="field full">
+            <label>Grade médical</label>
+            <select id="st-grade">
+              <option>Archiatros (Médecin en chef)</option>
+              <option>Iatros (Médecin)</option>
+              <option>Hypiatros (Interne)</option>
+              <option>Pharmakeus (Pharmacien)</option>
+              <option>Nosokomos (Infirmier)</option>
+              <option>Nosophoros (Brancardier)</option>
+              <option>Secrétaire médical</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn small" id="btnAddStaff">Ajouter au registre</button>
+      </div>
+      <hr class="sep" />
+      <div id="staffList"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-generaliste">
+    <div class="card">
+      <h2>Médecin généraliste</h2>
+      <p class="subtitle">Suivi des patients en externe et gestion des rendez-vous.</p>
+      <div class="proto-nav" id="generalisteNav"></div>
+    </div>
+    <div id="generalisteContent"></div>
+  </div>
+
+  <div class="panel" id="panel-pharmacie">
+    <div class="card">
+      <h2>Pharmacie</h2>
+      <p class="subtitle">Gestion des stocks, de l'équipement et validation des ordonnances.</p>
+      <div class="proto-nav" id="pharmacieNav"></div>
+    </div>
+    <div id="pharmacieContent"></div>
+  </div>
+
+  <div class="panel" id="panel-examens">
+    <div class="card">
+      <h2>Examens</h2>
+      <p class="subtitle">Catalogue des examens disponibles et suivi des demandes rattachées aux dossiers patients.</p>
+      <div class="proto-nav" id="examensNav"></div>
+    </div>
+    <div id="examensContent"></div>
+  </div>
+
+</div>
+
+<script>
+const DB_KEY = 'asclepieion-db';
+let db = { patients: {} };
+let currentRole = null, currentUser = '', pendingRole = null;
+let selectedSearchId = null, selectedAnamId = null, selectedDocId = null, selectedSoinsId = null;
+let newPatientPhoto = null;
+let editPhotoData = undefined;
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+async function withLoading(message, fn){
+  const overlay = document.getElementById('loadingOverlay');
+  document.getElementById('loadingText').textContent = message;
+  overlay.classList.remove('hidden');
+  const delay = 900 + Math.random()*900;
+  await sleep(delay);
+  try{ await fn(); } finally { overlay.classList.add('hidden'); }
+}
+
+function genId(prefix){ return (prefix||'P') + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase(); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function esc(s){ return (s===undefined||s===null) ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function initials(nom){ return (nom||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function statutClass(statut){
+  const map = { 'Enfant':'st-enfant', 'Adolescent':'st-ado', 'Jeune adulte':'st-jeune', 'Adulte':'st-adulte' };
+  return map[statut] || 'st-adulte';
+}
+function showBanner(msg, kind){
+  const el = document.getElementById('globalBanner');
+  el.innerHTML = '<div class="banner ' + (kind==='err'?'err':'ok') + '">' + esc(msg) + '</div>';
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+function ensurePatientShape(p){
+  if(!p.journal) p.journal = [];
+  if(!p.anamnese) p.anamnese = [];
+  if(!p.hospitalisations) p.hospitalisations = [];
+  if(!p.documents) p.documents = [];
+  if(!p.soins) p.soins = [];
+  if(!p.examens) p.examens = [];
+  if(p.photo === undefined) p.photo = null;
+  if(!p.statutDossier) p.statutDossier = 'Patient suivi';
+  if(p.medecinTraitant === undefined) p.medecinTraitant = '';
+  return p;
+}
+async function loadDB(){
+  try{
+    const res = await window.storage.get(DB_KEY, true);
+    db = res && res.value ? JSON.parse(res.value) : { patients: {} };
+  }catch(e){ db = { patients: {} }; }
+  Object.values(db.patients).forEach(ensurePatientShape);
+}
+async function saveDB(){
+  try{
+    const ok = await window.storage.set(DB_KEY, JSON.stringify(db), true);
+    if(!ok){ showBanner("La sauvegarde n'a pas abouti. Réessaie.", 'err'); return false; }
+    return true;
+  }catch(e){ showBanner("Erreur de sauvegarde : le registre partagé est momentanément inaccessible.", 'err'); return false; }
+}
+function updateStatPill(){
+  const n = Object.keys(db.patients).length;
+  document.getElementById('statPill').textContent = n + (n > 1 ? ' dossiers actifs' : ' dossier actif');
+}
+function activeHosp(p){ return (p.hospitalisations||[]).find(h => h.statut === 'En cours'); }
+function hospBadgeHtml(p){
+  const h = activeHosp(p);
+  if(h) return '<span class="hosp-badge actif">Hospitalisé — ' + esc(h.chambre||'chambre non précisée') + '</span>';
+  return '<span class="hosp-badge ambulatoire">Ambulatoire</span>';
+}
+function statutDossierClass(sd){
+  if(sd === 'Décédé') return 'dcd';
+  if(sd === "En cours d'hospitalisation") return 'hospitalise';
+  return 'suivi';
+}
+function steleHtml(p, extra){
+  const photoHtml = p.photo
+    ? '<img class="stele-photo" src="' + p.photo + '" alt="Photo" />'
+    : '<div class="stele-photo-ph">' + initials(p.nom) + '</div>';
+  return '<div class="stele"><div class="stele-flex">' + photoHtml +
+    '<div><p class="name">' + esc(p.nom) + '</p><p class="id">' + p.id + '</p>' +
+    '<div class="rowmeta"><span><b>Statut :</b> ' + esc(p.statut) + '</span><span><b>Âge :</b> ' + esc(p.age||'?') + '</span><span><b>Cabane :</b> ' + esc(p.cabane||'—') + '</span>' + hospBadgeHtml(p) + '<span class="statut-badge ' + statutDossierClass(p.statutDossier) + '">' + esc(p.statutDossier||'Patient suivi') + '</span>' + (extra||'') + '</div>' +
+    '</div></div></div>';
+}
+function resizeImageFile(file, maxDim, callback){
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      let w = img.width, h = img.height;
+      if(w > h){ if(w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; } }
+      else { if(h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.querySelectorAll('.role-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    pendingRole = card.dataset.role;
+    document.getElementById('nameStep').classList.remove('hidden');
+    document.getElementById('loginName').focus();
+    document.getElementById('loginNote').textContent = pendingRole === 'infirmier'
+      ? "Accès restreint : antécédents, anamnèses et notes cliniques resteront masqués."
+      : "Accès complet au dossier médical.";
+  });
+});
+document.getElementById('btnEnter').addEventListener('click', () => doLogin());
+document.getElementById('loginName').addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
+function doLogin(){
+  if(!pendingRole) return;
+  const name = document.getElementById('loginName').value.trim();
+  currentRole = pendingRole;
+  currentUser = name || (currentRole === 'medecin' ? 'Médecin de garde' : 'Infirmier de garde');
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('roleTagLabel').textContent = currentRole === 'medecin' ? 'Médecin (Iatros)' : (currentRole === 'infirmier' ? 'Infirmier (Nosokomos)' : 'Secrétaire médical');
+  document.getElementById('userLabel').textContent = currentUser;
+  startPresence();
+  applyRoleVisibility();
+  renderStaffList();
+  renderOnlineList();
+  renderGeneralisteNav();
+  renderPharmacieNav();
+  renderExamensNav();
+}
+document.getElementById('btnLogout').addEventListener('click', () => {
+  stopPresence();
+  currentRole = null; currentUser = ''; pendingRole = null;
+  document.getElementById('loginName').value = '';
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('nameStep').classList.add('hidden');
+  document.getElementById('appShell').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+});
+function applyRoleVisibility(){
+  let firstVisible = null;
+  document.querySelectorAll('.tab').forEach(btn => {
+    const roles = btn.dataset.roles.split(',');
+    const allowed = roles.includes(currentRole);
+    btn.classList.toggle('hidden', !allowed);
+    if(allowed && !firstVisible) firstVisible = btn.dataset.tab;
+  });
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const activeBtn = document.querySelector('.tab[data-tab="' + firstVisible + '"]');
+  if(activeBtn){ activeBtn.classList.add('active'); document.getElementById('panel-' + firstVisible).classList.add('active'); }
+}
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if(btn.classList.contains('hidden')) return;
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'personnel'){ loadPresence().then(renderOnlineList); renderStaffList(); }
+  });
+});
+
+document.getElementById('n-date').value = todayISO();
+document.getElementById('n-photo').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  resizeImageFile(file, 300, (dataUrl) => {
+    newPatientPhoto = dataUrl;
+    document.getElementById('n-photo-preview').innerHTML = '<img src="' + dataUrl + '" style="width:70px;height:70px;border-radius:50%;object-fit:cover;" />';
+  });
+});
+
+document.getElementById('btnCreate').addEventListener('click', async () => {
+  const nom = document.getElementById('n-nom').value.trim();
+  if(!nom){ showBanner('Le nom du patient est requis.', 'err'); return; }
+  await withLoading("Ouverture du dossier à l'Asclépieion…", async () => {
+    const id = genId('P');
+    const patient = ensurePatientShape({
+      id, nom,
+      age: document.getElementById('n-age').value,
+      statut: document.getElementById('n-statut').value,
+      cabane: document.getElementById('n-cabane').value,
+      dateAdmission: document.getElementById('n-date').value,
+      tuteur: document.getElementById('n-tuteur').value,
+      medecinTraitant: document.getElementById('n-medecintraitant').value,
+      urgence: document.getElementById('n-urgence').value,
+      photo: newPatientPhoto,
+      groupeSanguin: document.getElementById('n-sang').value,
+      allergies: document.getElementById('n-allergies').value,
+      chroniques: document.getElementById('n-chroniques').value,
+      chirurgie: document.getElementById('n-chirurgie').value,
+      traitement: document.getElementById('n-traitement').value,
+      sensibilite: document.getElementById('n-sensibilite').value,
+      reactions: document.getElementById('n-reactions').value,
+      resistance: document.getElementById('n-resistance').value,
+      notesIatros: document.getElementById('n-notes').value
+    });
+    db.patients[id] = patient;
+    const ok = await saveDB();
+    if(ok){
+      showBanner('Dossier créé — identifiant ' + id + '.', 'ok');
+      updateStatPill();
+      document.querySelectorAll('#panel-nouveau input, #panel-nouveau textarea').forEach(el => { if(el.type !== 'file') el.value = ''; });
+      document.getElementById('n-date').value = todayISO();
+      document.getElementById('n-photo-preview').innerHTML = '';
+      newPatientPhoto = null;
+    }
+  });
+});
+
+function renderSearchResults(filter){
+  const box = document.getElementById('searchResults');
+  const list = Object.values(db.patients).filter(p => {
+    if(!filter) return true;
+    const f = filter.toLowerCase();
+    return (p.nom||'').toLowerCase().includes(f) || (p.cabane||'').toLowerCase().includes(f) || p.id.toLowerCase().includes(f);
+  }).sort((a,b) => (a.nom||'').localeCompare(b.nom||''));
+
+  if(list.length === 0){
+    box.innerHTML = '<div class="empty"><h3>Aucun dossier trouvé</h3><p>Créez un nouveau dossier depuis l\'onglet dédié.</p></div>';
+    return;
+  }
+  box.innerHTML = list.map(p => (
+    '<div class="patient-row" data-id="' + p.id + '">' +
+      (p.photo ? '<img class="avatar" src="' + p.photo + '" />' : '<div class="avatar-ph">' + initials(p.nom) + '</div>') +
+      '<span class="badge ' + statutClass(p.statut) + '">' + esc(p.statut) + '</span>' +
+      '<span class="statut-badge ' + statutDossierClass(p.statutDossier) + '">' + esc(p.statutDossier) + '</span>' +
+      hospBadgeHtml(p) +
+      '<span class="name">' + esc(p.nom) + '</span>' +
+      '<span class="meta">' + esc(p.cabane||'—') + ' · ' + (p.age||'?') + ' ans · ' + p.id + '</span>' +
+    '</div>'
+  )).join('');
+  box.querySelectorAll('.patient-row').forEach(row => {
+    row.addEventListener('click', () => { selectedSearchId = row.dataset.id; editPhotoData = undefined; renderDossierDetail(); });
+  });
+}
+
+function journalRowsHtml(patient){
+  if(!patient.journal || patient.journal.length === 0) return '<tr><td colspan="4" style="color:var(--ink-soft);">Aucune entrée pour l\'instant.</td></tr>';
+  return patient.journal.slice().reverse().map(e => (
+    '<tr><td>' + esc(e.date) + '</td><td><span class="jtype">' + esc(e.type) + '</span></td><td>' + esc(e.detail) + '</td><td>' + esc(e.soignant) + '</td></tr>'
+  )).join('');
+}
+function anamCardsHtml(patient){
+  if(!patient.anamnese || patient.anamnese.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucune anamnèse enregistrée pour ce patient.</p>';
+  return patient.anamnese.slice().reverse().map(a => (
+    '<div class="anam-card"><div class="date">' + esc(a.date) + ' — signé ' + esc(a.iatros||'—') + '</div>' +
+    '<h4>' + esc(a.motif||'Sans motif renseigné') + '</h4>' +
+    '<p><b>Circonstances :</b> ' + esc(a.circonstances||'—') + '</p>' +
+    '<p><b>Observations :</b> ' + esc(a.observations||'—') + '</p>' +
+    '<p><b>Sensibilité divine suspectée :</b> ' + esc(a.sensibilite||'—') + '</p>' +
+    '<p><b>Plan initial :</b> ' + esc(a.plan||'—') + '</p></div>'
+  )).join('');
+}
+function hospHistoryHtml(patient){
+  if(!patient.hospitalisations || patient.hospitalisations.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucune hospitalisation enregistrée.</p>';
+  return patient.hospitalisations.slice().reverse().map(h => (
+    '<div class="hosp-card"><div class="date">Entrée le ' + esc(h.dateEntree) + (h.dateSortieReelle ? ' — Sortie le ' + esc(h.dateSortieReelle) : '') + '</div>' +
+    '<p><b>Statut :</b> <span class="hosp-badge ' + (h.statut==='En cours'?'actif':'termine') + '">' + esc(h.statut) + '</span></p>' +
+    '<p><b>Motif :</b> ' + esc(h.motif||'—') + '</p><p><b>Chambre / lit :</b> ' + esc(h.chambre||'—') + '</p>' +
+    '<p><b>Médecin responsable :</b> ' + esc(h.medecinResponsable||'—') + '</p><p><b>Sortie prévue :</b> ' + esc(h.dateSortiePrevue||'—') + '</p></div>'
+  )).join('');
+}
+function docCardsHtml(patient){
+  if(!patient.documents || patient.documents.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucun document enregistré.</p>';
+  return patient.documents.slice().reverse().map(d => {
+    let lines = '';
+    if(d.type === 'ordonnance'){
+      lines = '<p class="line"><b>Prescription :</b> ' + esc(d.medicament) + '</p><p class="line"><b>Posologie :</b> ' + esc(d.posologie) + '</p><p class="line"><b>Durée :</b> ' + esc(d.duree) + '</p><p class="line"><b>Renouvellement :</b> ' + esc(d.renouvelable) + '</p><p class="line"><b>Consignes :</b> ' + esc(d.consignes||'—') + '</p>';
+    } else if(d.type === 'certificat_aptitude'){
+      lines = '<p class="line"><b>Objet :</b> ' + esc(d.objet) + '</p><p class="line"><b>Conclusion :</b> ' + esc(d.conclusion) + '</p><p class="line"><b>Validité :</b> ' + esc(d.validite) + '</p><p class="line"><b>Observations :</b> ' + esc(d.observations||'—') + '</p>';
+    } else if(d.type === 'certificat_repos'){
+      lines = '<p class="line"><b>Motif :</b> ' + esc(d.motif) + '</p><p class="line"><b>Durée du repos :</b> ' + esc(d.duree) + '</p><p class="line"><b>Reprise prévue :</b> ' + esc(d.reprise) + '</p>';
+    } else {
+      lines = '<p class="line"><b>Motif de consultation :</b> ' + esc(d.motif) + '</p><p class="line"><b>Examen clinique :</b> ' + esc(d.examen) + '</p><p class="line"><b>Conclusion :</b> ' + esc(d.conclusion) + '</p><p class="line"><b>Conduite à tenir :</b> ' + esc(d.conduite) + '</p>';
+    }
+    return '<div class="doc-card"><div class="doc-head"><span>ASCLÉPIEION — ' + esc(DOC_LABELS[d.type]) + '</span><span>' + esc(d.date) + '</span></div><h4>' + esc(DOC_LABELS[d.type]) + '</h4>' + lines + '<div class="sig">Rédigé par ' + esc(d.redacteur||'—') + '</div></div>';
+  }).join('');
+}
+
+function field_(label, id, val){ return '<div class="field"><label>' + label + '</label><input type="text" id="' + id + '" value="' + esc(val) + '" /></div>'; }
+function textField_(label, id, val){ return '<div class="field full"><label>' + label + '</label><textarea id="' + id + '">' + esc(val) + '</textarea></div>'; }
+function selectField_(label, id, options, current){
+  return '<div class="field"><label>' + label + '</label><select id="' + id + '">' + options.map(o => '<option' + (o===current?' selected':'') + '>' + o + '</option>').join('') + '</select></div>';
+}
+
+function renderDossierDetail(){
+  const box = document.getElementById('dossierDetail');
+  const p = db.patients[selectedSearchId];
+  if(!p){ box.innerHTML = ''; return; }
+  const h = activeHosp(p);
+
+  let html = steleHtml(p);
+
+  html += '<div class="card"><h2>Statut du dossier</h2>';
+  if(currentRole === 'medecin'){
+    html += selectField_('Statut du patient','sd-statut',['Patient suivi',"En cours d'hospitalisation",'Décédé'],p.statutDossier) +
+      '<button class="btn small" id="btnUpdateStatutDossier">Mettre à jour le statut</button>';
+  } else {
+    html += '<p style="font-size:13.5px;">Statut actuel : <span class="statut-badge ' + statutDossierClass(p.statutDossier) + '">' + esc(p.statutDossier) + '</span></p>';
+  }
+  html += '</div>';
+
+  html += '<div class="card"><h2>Hospitalisation</h2>';
+  if(currentRole === 'medecin'){
+    html += '<button class="btn small" id="btnToggleHosp">' + (h ? "Clôturer l'hospitalisation en cours" : '+ Nouvelle hospitalisation') + '</button>';
+    if(!h){
+      html += '<div class="hidden" id="hospForm" style="margin-top:16px;"><div class="grid g3">' +
+        '<div class="field"><label>Date d\'entrée</label><input type="date" id="h-entree" value="' + todayISO() + '" /></div>' +
+        '<div class="field"><label>Chambre / lit</label><input type="text" id="h-chambre" /></div>' +
+        '<div class="field"><label>Sortie prévue</label><input type="date" id="h-sortieprevue" /></div>' +
+        '<div class="field"><label>Médecin responsable</label><input type="text" id="h-medecin" value="' + esc(currentUser) + '" /></div>' +
+        '<div class="field full"><label>Motif d\'hospitalisation</label><textarea id="h-motif"></textarea></div></div>' +
+        '<button class="btn small" id="btnSaveHosp">Confirmer l\'hospitalisation</button></div>';
+    }
+  }
+  html += '<div style="margin-top:14px;">' + hospHistoryHtml(p) + '</div></div>';
+
+  html += '<div class="card"><h2>Identité & antécédents</h2><div class="grid">' +
+        field_('Nom complet','d-nom',p.nom) + field_('Âge','d-age',p.age) +
+        selectField_('Statut','d-statut',['Enfant','Adolescent','Jeune adulte','Adulte'],p.statut) +
+        field_('Cabane / parent divin','d-cabane',p.cabane) + field_('Tuteur référent','d-tuteur',p.tuteur) + field_('Contact d\'urgence','d-urgence',p.urgence) +
+        field_('Médecin traitant','d-medecintraitant',p.medecinTraitant);
+
+  if(currentRole === 'medecin'){
+    html += selectField_('Groupe sanguin','d-sang',['Inconnu','O+','O-','A+','A-','B+','B-','AB+','AB-'],p.groupeSanguin) +
+        field_('Allergies','d-allergies',p.allergies) + textField_('Maladies chroniques','d-chroniques',p.chroniques) +
+        textField_('Antécédents chirurgicaux','d-chirurgie',p.chirurgie) + textField_('Traitement mortel en cours','d-traitement',p.traitement) +
+        selectField_('Sensibilité ambroisie/nectar','d-sensibilite',['Normale','Élevée','Inconnue'],p.sensibilite) +
+        field_('Réactions antérieures','d-reactions',p.reactions) + textField_('Résistance / vulnérabilité','d-resistance',p.resistance) +
+        textField_('Notes de l\'Iatros','d-notes',p.notesIatros) +
+        '<div class="field full"><label>Photo d\'identité</label><input type="file" id="d-photo" accept="image/*" /><div id="d-photo-preview" style="margin-top:8px;">' + (p.photo ? '<img src="'+p.photo+'" style="width:70px;height:70px;border-radius:50%;object-fit:cover;" />' : '') + '</div></div>';
+  }
+  html += '</div>';
+  if(currentRole === 'medecin'){
+    html += '<button class="btn" id="btnSaveDetail">Enregistrer les modifications</button> ' +
+      '<button class="btn ghost" id="btnExportPdf">Exporter en PDF (lecture seule)</button>';
+  } else {
+    html += '<p class="readonly-note">Antécédents médicaux et notes cliniques masqués — accès réservé aux médecins.</p>';
+  }
+  html += '</div>';
+
+  if(currentRole === 'medecin'){
+    html += '<div class="card"><h2>Journal médical</h2><p class="subtitle">Visites, médecine divine, aptitudes aux quêtes, incidents, mesures spéciales.</p>' +
+        '<table class="journal"><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Soignant</th></tr></thead><tbody>' + journalRowsHtml(p) + '</tbody></table><hr class="sep" />' +
+        '<div class="grid g3"><div class="field"><label>Date</label><input type="date" id="j-date" value="' + todayISO() + '" /></div>' +
+        '<div class="field"><label>Type</label><select id="j-type"><option>Consultation</option><option>Médecine divine</option><option>Aptitude quête</option><option>Incident</option><option>Mesure spéciale</option></select></div>' +
+        '<div class="field"><label>Soignant</label><input type="text" id="j-soignant" value="' + esc(currentUser) + '" /></div>' +
+        '<div class="field full"><label>Détail</label><textarea id="j-detail"></textarea></div></div>' +
+        '<button class="btn small" id="btnAddJournal">Ajouter au journal</button></div>' +
+      '<div class="card"><h2>Anamnèses enregistrées</h2>' + anamCardsHtml(p) +
+        '<button class="btn ghost small" id="btnGotoAnam" style="margin-top:8px;">Ajouter une anamnèse pour ce patient →</button></div>' +
+      '<div class="card danger-zone"><h2>Zone dangereuse</h2>' +
+        '<button class="btn warn small" id="btnDeletePatient">Supprimer ce dossier</button>' +
+        '<div class="hidden" id="deleteConfirmBox" style="margin-top:12px;">' +
+          '<p class="danger-text">Cette action est irréversible. Confirmez-vous la suppression définitive du dossier de ' + esc(p.nom) + ' ?</p>' +
+          '<button class="btn warn small" id="btnConfirmDelete">Oui, supprimer définitivement</button> ' +
+          '<button class="btn ghost small" id="btnCancelDelete">Annuler</button></div></div>';
+  } else {
+    html += '<div class="card"><h2>Documents en cours</h2><p class="subtitle">Consultation seule — pour l\'administration des traitements prescrits.</p>' + docCardsHtml(p) + '</div>';
+  }
+
+  box.innerHTML = html;
+
+  if(currentRole === 'medecin'){
+    const photoInput = document.getElementById('d-photo');
+    if(photoInput){
+      photoInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        resizeImageFile(file, 300, (dataUrl) => {
+          editPhotoData = dataUrl;
+          document.getElementById('d-photo-preview').innerHTML = '<img src="' + dataUrl + '" style="width:70px;height:70px;border-radius:50%;object-fit:cover;" />';
+        });
+      });
+    }
+    document.getElementById('btnSaveDetail').addEventListener('click', async () => {
+      await withLoading('Mise à jour du dossier…', async () => {
+        p.nom = document.getElementById('d-nom').value;
+        p.age = document.getElementById('d-age').value;
+        p.statut = document.getElementById('d-statut').value;
+        p.cabane = document.getElementById('d-cabane').value;
+        p.tuteur = document.getElementById('d-tuteur').value;
+        p.medecinTraitant = document.getElementById('d-medecintraitant').value;
+        p.urgence = document.getElementById('d-urgence').value;
+        p.groupeSanguin = document.getElementById('d-sang').value;
+        p.allergies = document.getElementById('d-allergies').value;
+        p.chroniques = document.getElementById('d-chroniques').value;
+        p.chirurgie = document.getElementById('d-chirurgie').value;
+        p.traitement = document.getElementById('d-traitement').value;
+        p.sensibilite = document.getElementById('d-sensibilite').value;
+        p.reactions = document.getElementById('d-reactions').value;
+        p.resistance = document.getElementById('d-resistance').value;
+        p.notesIatros = document.getElementById('d-notes').value;
+        if(editPhotoData !== undefined){ p.photo = editPhotoData; editPhotoData = undefined; }
+        const ok = await saveDB();
+        if(ok){ showBanner('Dossier mis à jour.', 'ok'); renderSearchResults(document.getElementById('searchInput').value); renderDossierDetail(); }
+      });
+    });
+
+    document.getElementById('btnExportPdf').addEventListener('click', async () => {
+      await withLoading('Génération du document PDF…', async () => { exportPatientPDF(p); });
+    });
+
+    const btnStatutDossier = document.getElementById('btnUpdateStatutDossier');
+    if(btnStatutDossier){
+      btnStatutDossier.addEventListener('click', async () => {
+        await withLoading('Mise à jour du statut du dossier…', async () => {
+          p.statutDossier = document.getElementById('sd-statut').value;
+          const ok = await saveDB();
+          if(ok){ showBanner('Statut du dossier mis à jour.', 'ok'); renderDossierDetail(); renderSearchResults(document.getElementById('searchInput').value); }
+        });
+      });
+    }
+
+    document.getElementById('btnAddJournal').addEventListener('click', async () => {
+      const detail = document.getElementById('j-detail').value.trim();
+      if(!detail){ showBanner('Merci de préciser le détail de l\'entrée.', 'err'); return; }
+      await withLoading('Consignation dans le journal médical…', async () => {
+        p.journal.push({ date: document.getElementById('j-date').value, type: document.getElementById('j-type').value, soignant: document.getElementById('j-soignant').value, detail });
+        const ok = await saveDB();
+        if(ok){ showBanner('Entrée ajoutée au journal.', 'ok'); renderDossierDetail(); }
+      });
+    });
+
+    document.getElementById('btnGotoAnam').addEventListener('click', () => {
+      document.querySelector('.tab[data-tab="anamnese"]').click();
+      selectAnamPatient(p.id);
+    });
+
+    const toggleBtn = document.getElementById('btnToggleHosp');
+    if(toggleBtn){
+      toggleBtn.addEventListener('click', async () => {
+        if(h){
+          await withLoading("Clôture de l'hospitalisation…", async () => {
+            h.dateSortieReelle = todayISO(); h.statut = 'Terminée';
+            const ok = await saveDB();
+            if(ok){ showBanner('Hospitalisation clôturée.', 'ok'); renderDossierDetail(); renderSearchResults(document.getElementById('searchInput').value); }
+          });
+        } else {
+          document.getElementById('hospForm').classList.toggle('hidden');
+        }
+      });
+    }
+    const saveHospBtn = document.getElementById('btnSaveHosp');
+    if(saveHospBtn){
+      saveHospBtn.addEventListener('click', async () => {
+        await withLoading("Enregistrement de l'hospitalisation…", async () => {
+          p.hospitalisations.push({ id: genId('H'), dateEntree: document.getElementById('h-entree').value, chambre: document.getElementById('h-chambre').value, dateSortiePrevue: document.getElementById('h-sortieprevue').value, medecinResponsable: document.getElementById('h-medecin').value, motif: document.getElementById('h-motif').value, statut: 'En cours' });
+          const ok = await saveDB();
+          if(ok){ showBanner('Hospitalisation enregistrée.', 'ok'); renderDossierDetail(); renderSearchResults(document.getElementById('searchInput').value); }
+        });
+      });
+    }
+
+    document.getElementById('btnDeletePatient').addEventListener('click', () => {
+      document.getElementById('deleteConfirmBox').classList.toggle('hidden');
+    });
+    document.getElementById('btnCancelDelete').addEventListener('click', () => {
+      document.getElementById('deleteConfirmBox').classList.add('hidden');
+    });
+    document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+      await withLoading('Suppression du dossier…', async () => {
+        delete db.patients[p.id];
+        const ok = await saveDB();
+        if(ok){
+          showBanner('Dossier supprimé.', 'ok');
+          selectedSearchId = null;
+          document.getElementById('dossierDetail').innerHTML = '';
+          updateStatPill();
+          renderSearchResults(document.getElementById('searchInput').value);
+        }
+      });
+    });
+  }
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => renderSearchResults(e.target.value));
+
+document.getElementById('anamSearch').addEventListener('input', (e) => {
+  const f = e.target.value.trim().toLowerCase();
+  const box = document.getElementById('anamSuggest');
+  if(!f){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const matches = Object.values(db.patients).filter(p => (p.nom||'').toLowerCase().includes(f)).slice(0,8);
+  if(matches.length === 0){ box.classList.add('hidden'); return; }
+  box.innerHTML = matches.map(p => '<div class="suggest-item" data-id="' + p.id + '">' + esc(p.nom) + ' <span style="color:var(--ink-soft);">— ' + esc(p.cabane||'cabane inconnue') + '</span></div>').join('');
+  box.classList.remove('hidden');
+  box.querySelectorAll('.suggest-item').forEach(it => {
+    it.addEventListener('click', () => { document.getElementById('anamSearch').value=''; box.classList.add('hidden'); selectAnamPatient(it.dataset.id); });
+  });
+});
+document.getElementById('btnQuickNew').addEventListener('click', () => document.getElementById('quickNewBox').classList.toggle('hidden'));
+document.getElementById('btnQuickCreate').addEventListener('click', async () => {
+  const nom = document.getElementById('q-nom').value.trim();
+  if(!nom){ showBanner('Le nom du patient est requis.', 'err'); return; }
+  await withLoading("Accueil du nouvel arrivant…", async () => {
+    const id = genId('P');
+    db.patients[id] = ensurePatientShape({
+      id, nom, age: document.getElementById('q-age').value, statut: document.getElementById('q-statut').value,
+      cabane: document.getElementById('q-cabane').value, dateAdmission: todayISO(),
+      tuteur:'', urgence:'', photo:null, groupeSanguin:'Inconnu', allergies:'', chroniques:'', chirurgie:'', traitement:'',
+      sensibilite:'Inconnue', reactions:'', resistance:'', notesIatros:''
+    });
+    const ok = await saveDB();
+    if(ok){
+      updateStatPill();
+      document.getElementById('quickNewBox').classList.add('hidden');
+      document.getElementById('q-nom').value=''; document.getElementById('q-age').value=''; document.getElementById('q-cabane').value='';
+      selectAnamPatient(id);
+      showBanner('Accueil rapide créé — poursuis l\'anamnèse ci-dessous.', 'ok');
+    }
+  });
+});
+function selectAnamPatient(id){ selectedAnamId = id; renderAnamBox(); }
+function renderAnamBox(){
+  const box = document.getElementById('anamPatientBox');
+  const p = db.patients[selectedAnamId];
+  if(!p){ box.innerHTML=''; return; }
+  box.innerHTML = steleHtml(p) +
+    '<div class="card"><h2>Étude clinique initiale</h2><div class="grid">' +
+      '<div class="field"><label>Date</label><input type="date" id="a-date" value="' + todayISO() + '" /></div>' +
+      '<div class="field"><label>Iatros / Hypiatros signataire</label><input type="text" id="a-iatros" value="' + esc(currentUser) + '" /></div>' +
+      '<div class="field full"><label>Motif de la première consultation</label><input type="text" id="a-motif" /></div>' +
+      '<div class="field full"><label>Circonstances de l\'arrivée</label><textarea id="a-circonstances"></textarea></div>' +
+      '<div class="field full"><label>Antécédents connus (déclarés par le patient)</label><textarea id="a-connus"></textarea></div>' +
+      '<div class="field full"><label>Antécédents inconnus / à explorer</label><textarea id="a-inconnus"></textarea></div>' +
+      '<div class="field full"><label>Observations cliniques initiales</label><textarea id="a-observations"></textarea></div>' +
+      selectField_('Sensibilité divine suspectée','a-sensibilite',['Faible','Normale','Élevée','Inconnue'],'Inconnue') +
+      '<div class="field full"><label>Plan initial (surveillance, examens, orientation)</label><textarea id="a-plan"></textarea></div></div>' +
+      '<button class="btn" id="btnSaveAnam">Enregistrer l\'anamnèse</button></div>' +
+    '<div class="card"><h2>Anamnèses précédentes</h2>' + anamCardsHtml(p) + '</div>';
+
+  document.getElementById('btnSaveAnam').addEventListener('click', async () => {
+    const motif = document.getElementById('a-motif').value.trim();
+    if(!motif){ showBanner('Merci de préciser le motif de consultation.', 'err'); return; }
+    await withLoading("Archivage de l'anamnèse…", async () => {
+      p.anamnese.push({ date: document.getElementById('a-date').value, iatros: document.getElementById('a-iatros').value, motif,
+        circonstances: document.getElementById('a-circonstances').value, connus: document.getElementById('a-connus').value,
+        inconnus: document.getElementById('a-inconnus').value, observations: document.getElementById('a-observations').value,
+        sensibilite: document.getElementById('a-sensibilite').value, plan: document.getElementById('a-plan').value });
+      const ok = await saveDB();
+      if(ok){ showBanner('Anamnèse enregistrée.', 'ok'); renderAnamBox(); }
+    });
+  });
+}
+
+const DOC_LABELS = { ordonnance: 'Ordonnance', certificat_aptitude: "Certificat médical d'aptitude", certificat_repos: 'Certificat de repos', compte_rendu: 'Compte-rendu de consultation' };
+document.getElementById('docSearch').addEventListener('input', (e) => {
+  const f = e.target.value.trim().toLowerCase();
+  const box = document.getElementById('docSuggest');
+  if(!f){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const matches = Object.values(db.patients).filter(p => (p.nom||'').toLowerCase().includes(f)).slice(0,8);
+  if(matches.length === 0){ box.classList.add('hidden'); return; }
+  box.innerHTML = matches.map(p => '<div class="suggest-item" data-id="' + p.id + '">' + esc(p.nom) + ' <span style="color:var(--ink-soft);">— ' + esc(p.cabane||'cabane inconnue') + '</span></div>').join('');
+  box.classList.remove('hidden');
+  box.querySelectorAll('.suggest-item').forEach(it => {
+    it.addEventListener('click', () => { document.getElementById('docSearch').value=''; box.classList.add('hidden'); selectedDocId = it.dataset.id; renderDocBox(); });
+  });
+});
+function docFormFieldsHtml(type){
+  if(type === 'ordonnance') return field_('Médicament / produit','doc-medicament','') + field_('Posologie','doc-posologie','') + field_('Durée','doc-duree','') + selectField_('Renouvellement','doc-renouvelable',['Non','Oui, une fois','Oui, plusieurs fois'],'Non') + textField_('Consignes particulières','doc-consignes','');
+  if(type === 'certificat_aptitude') return field_("Objet (quête, entraînement, mission…)",'doc-objet','') + selectField_('Conclusion','doc-conclusion',['Apte','Apte sous réserve','Inapte'],'Apte') + field_('Validité','doc-validite','') + textField_('Observations','doc-observations','');
+  if(type === 'certificat_repos') return field_('Motif','doc-motif','') + field_('Durée du repos','doc-duree','') + field_('Reprise prévue le','doc-reprise','');
+  return field_('Motif de consultation','doc-motif','') + textField_('Examen clinique','doc-examen','') + textField_('Conclusion','doc-conclusion','') + textField_('Conduite à tenir','doc-conduite','');
+}
+function renderDocBox(){
+  const box = document.getElementById('docPatientBox');
+  const p = db.patients[selectedDocId];
+  if(!p){ box.innerHTML=''; return; }
+  let html = steleHtml(p);
+  if(currentRole === 'medecin'){
+    html += '<div class="card"><h2>Nouveau document</h2><div class="grid"><div class="field"><label>Type de document</label><select id="doc-type">' +
+      Object.keys(DOC_LABELS).map(k => '<option value="' + k + '">' + DOC_LABELS[k] + '</option>').join('') + '</select></div></div>' +
+      '<div id="docDynamicFields" class="grid">' + docFormFieldsHtml('ordonnance') + '</div>' +
+      '<button class="btn small" id="btnGenDoc">Générer le document</button></div>';
+  } else {
+    html += '<p class="readonly-note">Consultation seule — la création de documents est réservée aux médecins.</p>';
+  }
+  html += '<div class="card"><h2>Documents du patient</h2>' + docCardsHtml(p) + '</div>';
+  box.innerHTML = html;
+  if(currentRole === 'medecin'){
+    document.getElementById('doc-type').addEventListener('change', (e) => { document.getElementById('docDynamicFields').innerHTML = docFormFieldsHtml(e.target.value); });
+    document.getElementById('btnGenDoc').addEventListener('click', async () => {
+      await withLoading('Rédaction du document…', async () => {
+        const type = document.getElementById('doc-type').value;
+        const base = { id: genId('D'), type, date: todayISO(), redacteur: currentUser };
+        let doc;
+        if(type === 'ordonnance') doc = Object.assign(base, { medicament: document.getElementById('doc-medicament').value, posologie: document.getElementById('doc-posologie').value, duree: document.getElementById('doc-duree').value, renouvelable: document.getElementById('doc-renouvelable').value, consignes: document.getElementById('doc-consignes').value });
+        else if(type === 'certificat_aptitude') doc = Object.assign(base, { objet: document.getElementById('doc-objet').value, conclusion: document.getElementById('doc-conclusion').value, validite: document.getElementById('doc-validite').value, observations: document.getElementById('doc-observations').value });
+        else if(type === 'certificat_repos') doc = Object.assign(base, { motif: document.getElementById('doc-motif').value, duree: document.getElementById('doc-duree').value, reprise: document.getElementById('doc-reprise').value });
+        else doc = Object.assign(base, { motif: document.getElementById('doc-motif').value, examen: document.getElementById('doc-examen').value, conclusion: document.getElementById('doc-conclusion').value, conduite: document.getElementById('doc-conduite').value });
+        p.documents.push(doc);
+        const ok = await saveDB();
+        if(ok){ showBanner('Document généré.', 'ok'); renderDocBox(); }
+      });
+    });
+  }
+}
+
+document.getElementById('soinsSearch').addEventListener('input', (e) => {
+  const f = e.target.value.trim().toLowerCase();
+  const box = document.getElementById('soinsSuggest');
+  if(!f){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const matches = Object.values(db.patients).filter(p => (p.nom||'').toLowerCase().includes(f)).slice(0,8);
+  if(matches.length === 0){ box.classList.add('hidden'); return; }
+  box.innerHTML = matches.map(p => '<div class="suggest-item" data-id="' + p.id + '">' + esc(p.nom) + ' <span style="color:var(--ink-soft);">— ' + esc(p.cabane||'cabane inconnue') + '</span></div>').join('');
+  box.classList.remove('hidden');
+  box.querySelectorAll('.suggest-item').forEach(it => {
+    it.addEventListener('click', () => { document.getElementById('soinsSearch').value=''; box.classList.add('hidden'); selectedSoinsId = it.dataset.id; renderSoinsBox(); });
+  });
+});
+function soinsRowsHtml(patient){
+  if(!patient.soins || patient.soins.length === 0) return '<tr><td colspan="4" style="color:var(--ink-soft);">Aucun soin enregistré.</td></tr>';
+  return patient.soins.slice().reverse().map(s => '<tr><td>' + esc(s.date) + '</td><td><span class="jtype soin">' + esc(s.type) + '</span></td><td>' + esc(s.detail) + '</td><td>' + esc(s.par) + '</td></tr>').join('');
+}
+function renderSoinsBox(){
+  const box = document.getElementById('soinsPatientBox');
+  const p = db.patients[selectedSoinsId];
+  if(!p){ box.innerHTML=''; return; }
+  box.innerHTML = steleHtml(p) +
+    '<div class="card"><h2>Journal de soins</h2><table class="journal"><thead><tr><th>Date</th><th>Type</th><th>Détail</th><th>Par</th></tr></thead><tbody>' + soinsRowsHtml(p) + '</tbody></table><hr class="sep" />' +
+    '<div class="grid g3"><div class="field"><label>Date</label><input type="date" id="s-date" value="' + todayISO() + '" /></div>' +
+    '<div class="field"><label>Type</label><select id="s-type"><option>Administration de traitement</option><option>Soin quotidien</option><option>Observation</option></select></div>' +
+    '<div class="field"><label>Réalisé par</label><input type="text" id="s-par" value="' + esc(currentUser) + '" /></div>' +
+    '<div class="field full"><label>Détail</label><textarea id="s-detail"></textarea></div></div>' +
+    '<button class="btn small" id="btnAddSoin">Ajouter au journal de soins</button></div>';
+  document.getElementById('btnAddSoin').addEventListener('click', async () => {
+    const detail = document.getElementById('s-detail').value.trim();
+    if(!detail){ showBanner('Merci de préciser le détail du soin.', 'err'); return; }
+    await withLoading('Consignation du soin…', async () => {
+      p.soins.push({ date: document.getElementById('s-date').value, type: document.getElementById('s-type').value, par: document.getElementById('s-par').value, detail });
+      const ok = await saveDB();
+      if(ok){ showBanner('Soin enregistré.', 'ok'); renderSoinsBox(); }
+    });
+  });
+}
+
+function exportPatientPDF(p){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 40;
+    let y = 50;
+    if(p.photo){ try{ doc.addImage(p.photo, 'JPEG', pageWidth-margin-70, 40, 70, 70); }catch(e){} }
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text('ASCLÉPIEION — Dossier médical', margin, y); y += 10;
+    doc.setDrawColor(180); doc.line(margin, y, pageWidth-margin-80, y); y += 22;
+    doc.setFontSize(13); doc.text(p.nom || 'Patient', margin, y); y += 16;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text('Identifiant : ' + p.id, margin, y); y += 18;
+
+    function line(label, value){
+      const text = label + ' : ' + (value || '—');
+      const split = doc.splitTextToSize(text, pageWidth - margin*2);
+      if(y > 770){ doc.addPage(); y = 50; }
+      doc.text(split, margin, y);
+      y += split.length * 12 + 4;
+    }
+    function sectionTitle(t){
+      if(y > 750){ doc.addPage(); y = 50; }
+      y += 6;
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      doc.text(t, margin, y); y += 6;
+      doc.setDrawColor(210); doc.line(margin, y, pageWidth-margin, y); y += 14;
+      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    }
+
+    sectionTitle('Identité');
+    line('Âge', p.age); line('Statut', p.statut); line('Cabane / parent divin', p.cabane);
+    line("Date d'admission", p.dateAdmission); line('Tuteur référent', p.tuteur); line("Contact d'urgence", p.urgence);
+
+    sectionTitle('Antécédents — médecine mortelle');
+    line('Groupe sanguin', p.groupeSanguin); line('Allergies', p.allergies); line('Maladies chroniques', p.chroniques);
+    line('Antécédents chirurgicaux', p.chirurgie); line('Traitement en cours', p.traitement);
+
+    sectionTitle('Antécédents — médecine divine');
+    line('Sensibilité ambroisie/nectar', p.sensibilite); line('Réactions antérieures', p.reactions);
+    line('Résistance / vulnérabilité', p.resistance); line("Notes de l'Iatros", p.notesIatros);
+
+    sectionTitle('Hospitalisations');
+    if(!p.hospitalisations || p.hospitalisations.length===0) line('—','');
+    else p.hospitalisations.forEach(hh => {
+      line('Entrée', hh.dateEntree + (hh.dateSortieReelle ? ' -> Sortie ' + hh.dateSortieReelle : ' (en cours)'));
+      line('Motif', hh.motif); line('Chambre', hh.chambre); line('Médecin responsable', hh.medecinResponsable);
+    });
+
+    sectionTitle('Journal médical');
+    if(!p.journal || p.journal.length===0) line('—','');
+    else p.journal.forEach(j => line(j.date + ' — ' + j.type, j.detail + ' (par ' + (j.soignant||'—') + ')'));
+
+    sectionTitle('Anamnèses');
+    if(!p.anamnese || p.anamnese.length===0) line('—','');
+    else p.anamnese.forEach(a => { line(a.date + ' — Motif', a.motif); line('Circonstances', a.circonstances); line('Observations', a.observations); line('Plan', a.plan); });
+
+    sectionTitle('Documents');
+    if(!p.documents || p.documents.length===0) line('—','');
+    else p.documents.forEach(d => line(d.date + ' — ' + (DOC_LABELS[d.type]||d.type), 'Rédigé par ' + (d.redacteur||'—')));
+
+    sectionTitle('Soins infirmiers');
+    if(!p.soins || p.soins.length===0) line('—','');
+    else p.soins.forEach(s => line(s.date + ' — ' + s.type, s.detail + ' (par ' + (s.par||'—') + ')'));
+
+    doc.save('dossier-' + (p.nom||'patient').replace(/\s+/g,'_') + '-' + p.id + '.pdf');
+  }catch(e){ showBanner('Erreur lors de la génération du PDF.', 'err'); }
+}
+
+// ---------- STAFF / PRESENCE / OPS STORAGE ----------
+const STAFF_KEY = 'asclepieion-staff';
+const PRESENCE_KEY = 'asclepieion-presence';
+const OPS_KEY = 'asclepieion-ops';
+let staffDb = { staff: {} };
+let presenceDb = { sessions: {} };
+let opsDb = { externes: [], rendezvous: [], stock: [] };
+let mySessionId = null;
+let presenceInterval = null;
+
+async function loadStaff(){
+  try{ const res = await window.storage.get(STAFF_KEY, true); staffDb = res && res.value ? JSON.parse(res.value) : { staff: {} }; }
+  catch(e){ staffDb = { staff: {} }; }
+}
+async function saveStaff(){
+  try{ return await window.storage.set(STAFF_KEY, JSON.stringify(staffDb), true); }
+  catch(e){ return null; }
+}
+async function loadPresence(){
+  try{ const res = await window.storage.get(PRESENCE_KEY, true); presenceDb = res && res.value ? JSON.parse(res.value) : { sessions: {} }; }
+  catch(e){ presenceDb = { sessions: {} }; }
+}
+async function savePresence(){
+  try{ return await window.storage.set(PRESENCE_KEY, JSON.stringify(presenceDb), true); }
+  catch(e){ return null; }
+}
+async function loadOps(){
+  try{
+    const res = await window.storage.get(OPS_KEY, true);
+    opsDb = res && res.value ? JSON.parse(res.value) : { externes: [], rendezvous: [], stock: [] };
+  }catch(e){ opsDb = { externes: [], rendezvous: [], stock: [] }; }
+  if(!opsDb.externes) opsDb.externes = [];
+  if(!opsDb.rendezvous) opsDb.rendezvous = [];
+  if(!opsDb.stock) opsDb.stock = [];
+}
+async function saveOps(){
+  try{ return await window.storage.set(OPS_KEY, JSON.stringify(opsDb), true); }
+  catch(e){ return null; }
+}
+
+function startPresence(){
+  mySessionId = genId('S');
+  updatePresence();
+  presenceInterval = setInterval(async () => {
+    await updatePresence();
+    await loadPresence();
+    renderOnlineList();
+  }, 25000);
+}
+async function updatePresence(){
+  await loadPresence();
+  presenceDb.sessions[mySessionId] = { name: currentUser, role: currentRole, lastSeen: Date.now() };
+  const now = Date.now();
+  Object.keys(presenceDb.sessions).forEach(k => { if(now - presenceDb.sessions[k].lastSeen > 90000) delete presenceDb.sessions[k]; });
+  await savePresence();
+}
+function stopPresence(){
+  if(presenceInterval){ clearInterval(presenceInterval); presenceInterval = null; }
+  if(mySessionId && presenceDb.sessions[mySessionId]){ delete presenceDb.sessions[mySessionId]; savePresence(); }
+  mySessionId = null;
+}
+function roleLabelShort(r){ return r === 'medecin' ? 'Médecin' : (r === 'infirmier' ? 'Infirmier' : 'Secrétaire'); }
+function renderOnlineList(){
+  const listEl = document.getElementById('onlineList');
+  const countEl = document.getElementById('onlineCountLabel');
+  const now = Date.now();
+  const sessions = Object.values(presenceDb.sessions || {}).filter(s => now - s.lastSeen <= 90000);
+  if(countEl) countEl.textContent = sessions.length + (sessions.length > 1 ? ' en ligne' : ' en ligne');
+  if(listEl){
+    listEl.innerHTML = sessions.length === 0
+      ? '<p style="color:var(--ink-soft);font-size:13.5px;">Personne d\'autre en ligne pour le moment.</p>'
+      : sessions.map(s => '<div class="online-chip"><span class="online-dot"></span>' + esc(s.name) + ' <span style="color:var(--ink-soft);">— ' + roleLabelShort(s.role) + '</span></div>').join('');
+  }
+}
+
+// ---------- PERSONNEL ----------
+document.getElementById('btnAddStaff').addEventListener('click', async () => {
+  const prenom = document.getElementById('st-prenom').value.trim();
+  const nom = document.getElementById('st-nom').value.trim();
+  if(!prenom || !nom){ showBanner('Prénom et nom sont requis.', 'err'); return; }
+  await withLoading('Inscription au registre du personnel…', async () => {
+    const id = genId('ST');
+    staffDb.staff[id] = { id, prenom, nom, age: document.getElementById('st-age').value, grade: document.getElementById('st-grade').value };
+    const ok = await saveStaff();
+    if(ok){
+      showBanner('Membre ajouté au personnel.', 'ok');
+      document.getElementById('st-prenom').value=''; document.getElementById('st-nom').value=''; document.getElementById('st-age').value='';
+      renderStaffList();
+    }
+  });
+});
+function renderStaffList(){
+  const box = document.getElementById('staffList');
+  if(!box) return;
+  const createBox = document.getElementById('staffCreateBox');
+  if(createBox) createBox.classList.toggle('hidden', currentRole === 'infirmier');
+  const list = Object.values(staffDb.staff||{}).sort((a,b) => (a.nom||'').localeCompare(b.nom||''));
+  if(list.length === 0){ box.innerHTML = '<div class="empty"><h3>Aucun membre enregistré</h3><p>Ajoute le premier membre du personnel ci-dessus.</p></div>'; return; }
+  box.innerHTML = list.map(s => (
+    '<div class="staff-card"><span class="staff-name">' + esc(s.prenom) + ' ' + esc(s.nom) + '</span>' +
+    '<span class="grade-badge">' + esc(s.grade) + '</span>' +
+    '<span class="staff-meta">' + (s.age||'?') + ' ans</span></div>'
+  )).join('');
+}
+
+// ---------- MÉDECIN GÉNÉRALISTE ----------
+let activeGeneralisteSub = 'externes';
+function renderGeneralisteNav(){
+  const nav = document.getElementById('generalisteNav');
+  if(!nav) return;
+  const subs = currentRole === 'secretaire' ? [['rendezvous','Rendez-vous']] : [['externes','Consultations externes'],['rendezvous','Rendez-vous']];
+  if(currentRole === 'secretaire') activeGeneralisteSub = 'rendezvous';
+  nav.innerHTML = subs.map(s => '<button class="proto-tab' + (s[0]===activeGeneralisteSub?' active':'') + '" data-sub="' + s[0] + '">' + s[1] + '</button>').join('');
+  nav.querySelectorAll('.proto-tab').forEach(b => b.addEventListener('click', () => { activeGeneralisteSub = b.dataset.sub; renderGeneralisteNav(); renderGeneralisteContent(); }));
+  renderGeneralisteContent();
+}
+function renderGeneralisteContent(){
+  const box = document.getElementById('generalisteContent');
+  if(!box) return;
+  if(activeGeneralisteSub === 'externes' && currentRole !== 'secretaire'){
+    box.innerHTML = '<div class="card"><h2>Nouvelle consultation externe</h2><p class="subtitle">Suivi léger pour un patient vu en externe, sans dossier complet à l\'Asclépieion.</p>' +
+      '<div class="grid">' +
+        field_('Nom du patient','ext-nom','') + field_('Âge','ext-age','') +
+        '<div class="field"><label>Date</label><input type="date" id="ext-date" value="' + todayISO() + '" /></div>' +
+        field_('Motif de consultation','ext-motif','') +
+        textField_('Examen clinique','ext-examen','') +
+        textField_('Conclusion','ext-conclusion','') +
+        textField_('Conduite à tenir','ext-conduite','') +
+      '</div><button class="btn small" id="btnAddExterne">Enregistrer la consultation</button></div>' +
+      '<div class="card"><h2>Consultations récentes</h2>' + externesListHtml() + '</div>';
+    document.getElementById('btnAddExterne').addEventListener('click', async () => {
+      const nom = document.getElementById('ext-nom').value.trim();
+      if(!nom){ showBanner('Le nom du patient est requis.', 'err'); return; }
+      await withLoading('Enregistrement de la consultation…', async () => {
+        opsDb.externes.push({ id: genId('E'), nom, age: document.getElementById('ext-age').value, date: document.getElementById('ext-date').value,
+          motif: document.getElementById('ext-motif').value, examen: document.getElementById('ext-examen').value,
+          conclusion: document.getElementById('ext-conclusion').value, conduite: document.getElementById('ext-conduite').value, medecin: currentUser });
+        const ok = await saveOps();
+        if(ok){ showBanner('Consultation enregistrée.', 'ok'); renderGeneralisteContent(); }
+      });
+    });
+  } else {
+    box.innerHTML = '<div class="card"><h2>Nouveau rendez-vous</h2><div class="grid g3">' +
+        field_('Nom du patient','rdv-nom','') +
+        '<div class="field"><label>Date</label><input type="date" id="rdv-date" value="' + todayISO() + '" /></div>' +
+        '<div class="field"><label>Heure</label><input type="time" id="rdv-heure" value="09:00" /></div>' +
+        field_('Motif','rdv-motif','') +
+        field_('Médecin assigné','rdv-medecin', currentRole==='medecin' ? currentUser : '') +
+      '</div><button class="btn small" id="btnAddRdv">Créer le rendez-vous</button></div>' +
+      '<div class="card"><h2>Rendez-vous programmés</h2>' + rdvListHtml() + '</div>';
+    document.getElementById('btnAddRdv').addEventListener('click', async () => {
+      const nom = document.getElementById('rdv-nom').value.trim();
+      if(!nom){ showBanner('Le nom du patient est requis.', 'err'); return; }
+      await withLoading('Prise du rendez-vous…', async () => {
+        opsDb.rendezvous.push({ id: genId('R'), nom, date: document.getElementById('rdv-date').value, heure: document.getElementById('rdv-heure').value,
+          motif: document.getElementById('rdv-motif').value, medecin: document.getElementById('rdv-medecin').value, statut: 'À venir' });
+        const ok = await saveOps();
+        if(ok){ showBanner('Rendez-vous créé.', 'ok'); renderGeneralisteContent(); }
+      });
+    });
+    box.querySelectorAll('.rdv-action').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const rdv = opsDb.rendezvous.find(r => r.id === btn.dataset.id);
+        if(!rdv) return;
+        rdv.statut = btn.dataset.action;
+        const ok = await saveOps();
+        if(ok){ renderGeneralisteContent(); }
+      });
+    });
+  }
+}
+function externesListHtml(){
+  if(!opsDb.externes || opsDb.externes.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucune consultation externe enregistrée.</p>';
+  return opsDb.externes.slice().reverse().map(e => (
+    '<div class="ext-card"><div class="ext-head"><span>' + esc(e.nom) + (e.age?' — '+esc(e.age)+' ans':'') + '</span><span>' + esc(e.date) + '</span></div>' +
+    '<p><b>Motif :</b> ' + esc(e.motif||'—') + '</p><p><b>Examen :</b> ' + esc(e.examen||'—') + '</p>' +
+    '<p><b>Conclusion :</b> ' + esc(e.conclusion||'—') + '</p><p><b>Conduite à tenir :</b> ' + esc(e.conduite||'—') + '</p>' +
+    '<p style="text-align:right;color:var(--ink-soft);font-size:12.5px;">Par ' + esc(e.medecin||'—') + '</p></div>'
+  )).join('');
+}
+function rdvListHtml(){
+  if(!opsDb.rendezvous || opsDb.rendezvous.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucun rendez-vous programmé.</p>';
+  const sorted = opsDb.rendezvous.slice().sort((a,b) => (a.date+a.heure).localeCompare(b.date+b.heure));
+  return sorted.map(r => {
+    const stClass = r.statut === 'À venir' ? 'avenir' : (r.statut === 'Réalisé' ? 'realise' : 'annule');
+    const actions = r.statut === 'À venir'
+      ? '<button class="btn ghost small rdv-action" data-id="' + r.id + '" data-action="Réalisé">Marquer réalisé</button> <button class="btn ghost small rdv-action" data-id="' + r.id + '" data-action="Annulé">Annuler</button>'
+      : '';
+    return '<div class="rdv-row"><span class="rdv-when">' + esc(r.date) + ' ' + esc(r.heure) + '</span>' +
+      '<span style="font-weight:600;flex:1;">' + esc(r.nom) + '</span>' +
+      '<span style="color:var(--ink-soft);font-size:13px;">' + esc(r.motif||'—') + '</span>' +
+      '<span style="font-size:12.5px;color:var(--ink-soft);">' + esc(r.medecin||'—') + '</span>' +
+      '<span class="rdv-statut ' + stClass + '">' + esc(r.statut) + '</span>' + actions + '</div>';
+  }).join('');
+}
+
+// ---------- PHARMACIE ----------
+let activePharmacieSub = 'stocks';
+let selectedPharmaId = null;
+function renderPharmacieNav(){
+  const nav = document.getElementById('pharmacieNav');
+  if(!nav) return;
+  const subs = [['stocks','Stocks & équipement'],['ordonnances','Ordonnances à valider']];
+  nav.innerHTML = subs.map(s => '<button class="proto-tab' + (s[0]===activePharmacieSub?' active':'') + '" data-sub="' + s[0] + '">' + s[1] + '</button>').join('');
+  nav.querySelectorAll('.proto-tab').forEach(b => b.addEventListener('click', () => { activePharmacieSub = b.dataset.sub; renderPharmacieNav(); renderPharmacieContent(); }));
+  renderPharmacieContent();
+}
+function renderPharmacieContent(){
+  const box = document.getElementById('pharmacieContent');
+  if(!box) return;
+  if(activePharmacieSub === 'stocks'){
+    box.innerHTML = '<div class="card"><h2>Ajouter un article</h2><div class="grid g3">' +
+        field_('Produit / matériel','stk-nom','') +
+        '<div class="field"><label>Catégorie</label><select id="stk-cat"><option>Médicament mortel</option><option>Ambroisie &amp; nectar</option><option>Équipement médical</option></select></div>' +
+        field_('Unité','stk-unite','unités') +
+        '<div class="field"><label>Quantité initiale</label><input type="number" id="stk-qte" value="0" /></div>' +
+        '<div class="field"><label>Seuil d\'alerte</label><input type="number" id="stk-seuil" value="5" /></div>' +
+      '</div><button class="btn small" id="btnAddStock">Ajouter au stock</button></div>' +
+      '<div class="card"><h2>Inventaire</h2>' + stockListHtml() + '</div>';
+    document.getElementById('btnAddStock').addEventListener('click', async () => {
+      const nom = document.getElementById('stk-nom').value.trim();
+      if(!nom){ showBanner('Le nom du produit est requis.', 'err'); return; }
+      await withLoading('Inscription au registre de stock…', async () => {
+        opsDb.stock.push({ id: genId('K'), nom, categorie: document.getElementById('stk-cat').value, unite: document.getElementById('stk-unite').value,
+          quantite: parseInt(document.getElementById('stk-qte').value)||0, seuil: parseInt(document.getElementById('stk-seuil').value)||0 });
+        const ok = await saveOps();
+        if(ok){ showBanner('Article ajouté au stock.', 'ok'); renderPharmacieContent(); }
+      });
+    });
+    box.querySelectorAll('.stock-adjust').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const item = opsDb.stock.find(i => i.id === btn.dataset.id);
+        if(!item) return;
+        item.quantite = Math.max(0, item.quantite + parseInt(btn.dataset.delta));
+        await saveOps();
+        renderPharmacieContent();
+      });
+    });
+  } else {
+    box.innerHTML = '<div class="card"><h2>Rechercher un patient</h2><div class="picker-box"><div class="field"><label>Nom du patient</label>' +
+      '<input id="pharmaSearch" type="text" placeholder="Nom du patient…" autocomplete="off" /><div class="suggest-list hidden" id="pharmaSuggest"></div></div></div></div>' +
+      '<div id="pharmaPatientBox"></div>';
+    document.getElementById('pharmaSearch').addEventListener('input', (e) => {
+      const f = e.target.value.trim().toLowerCase();
+      const sbox = document.getElementById('pharmaSuggest');
+      if(!f){ sbox.classList.add('hidden'); sbox.innerHTML=''; return; }
+      const matches = Object.values(db.patients).filter(p => (p.nom||'').toLowerCase().includes(f)).slice(0,8);
+      if(matches.length === 0){ sbox.classList.add('hidden'); return; }
+      sbox.innerHTML = matches.map(p => '<div class="suggest-item" data-id="' + p.id + '">' + esc(p.nom) + '</div>').join('');
+      sbox.classList.remove('hidden');
+      sbox.querySelectorAll('.suggest-item').forEach(it => {
+        it.addEventListener('click', () => { document.getElementById('pharmaSearch').value=''; sbox.classList.add('hidden'); selectedPharmaId = it.dataset.id; renderPharmaOrdonnances(); });
+      });
+    });
+    if(selectedPharmaId) renderPharmaOrdonnances();
+  }
+}
+function stockListHtml(){
+  if(!opsDb.stock || opsDb.stock.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucun article en stock pour l\'instant.</p>';
+  return opsDb.stock.map(i => {
+    const low = i.quantite <= i.seuil;
+    return '<div class="stock-row' + (low?' low':'') + '"><span class="stock-name">' + esc(i.nom) + '</span>' +
+      '<span class="stock-cat">' + esc(i.categorie) + '</span>' +
+      '<button class="stock-qty-btn stock-adjust" data-id="' + i.id + '" data-delta="-1">−</button>' +
+      '<span class="stock-qty">' + i.quantite + ' ' + esc(i.unite) + '</span>' +
+      '<button class="stock-qty-btn stock-adjust" data-id="' + i.id + '" data-delta="1">+</button>' +
+      (low ? '<span class="low-badge">Stock bas</span>' : '') + '</div>';
+  }).join('');
+}
+function renderPharmaOrdonnances(){
+  const box = document.getElementById('pharmaPatientBox');
+  const p = db.patients[selectedPharmaId];
+  if(!p){ box.innerHTML=''; return; }
+  const ordonnances = (p.documents||[]).filter(d => d.type === 'ordonnance');
+  let html = steleHtml(p) + '<div class="card"><h2>Ordonnances</h2>';
+  if(ordonnances.length === 0){
+    html += '<p style="color:var(--ink-soft);font-size:13.5px;">Aucune ordonnance pour ce patient.</p>';
+  } else {
+    html += ordonnances.slice().reverse().map(d => (
+      '<div class="doc-card"><div class="doc-head"><span>Ordonnance</span><span>' + esc(d.date) + '</span></div>' +
+      '<p class="line"><b>Prescription :</b> ' + esc(d.medicament) + '</p><p class="line"><b>Posologie :</b> ' + esc(d.posologie) + '</p>' +
+      '<p class="line"><b>Durée :</b> ' + esc(d.duree) + '</p>' +
+      (d.delivree
+        ? '<p class="line" style="color:var(--verdigris-dk);">✓ Délivrée par ' + esc(d.delivrePar) + ' le ' + esc(d.dateDelivrance) + '</p>'
+        : '<button class="btn small pharma-deliver" data-id="' + d.id + '">Marquer comme délivrée</button>') +
+      '</div>'
+    )).join('');
+  }
+  html += '</div>';
+  box.innerHTML = html;
+  box.querySelectorAll('.pharma-deliver').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const d = p.documents.find(x => x.id === btn.dataset.id);
+      if(!d) return;
+      await withLoading("Validation de l'ordonnance…", async () => {
+        d.delivree = true; d.delivrePar = currentUser; d.dateDelivrance = todayISO();
+        const ok = await saveDB();
+        if(ok){ showBanner('Ordonnance marquée comme délivrée.', 'ok'); renderPharmaOrdonnances(); }
+      });
+    });
+  });
+}
+
+// ---------- EXAMENS ----------
+const EXAM_CATALOG = {
+  biologie: { label: 'Biologie médicale', items: ['Prise de sang', 'Microbiologie', 'Analyses urinaires', 'Examens génétiques', 'Tests infectieux'] },
+  imagerie: { label: 'Imagerie médicale', items: ['Radiographie', 'Scanner', 'IRM', 'Échographie', 'Doppler'] },
+  fonctionnels: { label: 'Examens fonctionnels', items: ['ECG', 'Holter ECG', 'EFR', 'EEG', "Épreuve d'effort", 'Échocardiographie'] },
+  specialises: { label: 'Examens spécialisés', items: ['Ponction lombaire', 'Biopsie', 'Endoscopie', 'Fibroscopie', 'Gastroscopie', 'Coloscopie', 'Arthroscopie'] }
+};
+const EXAM_STATUTS = ['Demandé', 'Programmé', 'En cours', 'Réalisé'];
+let activeExamensSub = 'biologie';
+let selectedExamensPatientId = null;
+let prefillExamType = null;
+
+function renderExamensNav(){
+  const nav = document.getElementById('examensNav');
+  if(!nav) return;
+  const subs = [['biologie','Biologie médicale'],['imagerie','Imagerie médicale'],['fonctionnels','Examens fonctionnels'],['specialises','Examens spécialisés'],['demandes',"Demandes d'examen"]];
+  nav.innerHTML = subs.map(s => '<button class="proto-tab' + (s[0]===activeExamensSub?' active':'') + '" data-sub="' + s[0] + '">' + s[1] + '</button>').join('');
+  nav.querySelectorAll('.proto-tab').forEach(b => b.addEventListener('click', () => { activeExamensSub = b.dataset.sub; renderExamensNav(); renderExamensContent(); }));
+  renderExamensContent();
+}
+function renderExamensContent(){
+  const box = document.getElementById('examensContent');
+  if(!box) return;
+  if(activeExamensSub !== 'demandes'){
+    const cat = EXAM_CATALOG[activeExamensSub];
+    box.innerHTML = '<div class="card"><h2>' + esc(cat.label) + '</h2><p class="subtitle">Cliquer sur un examen pour lancer une demande.</p>' +
+      '<div class="exam-chip-grid">' + cat.items.map(it => '<button class="exam-chip" data-cat="' + activeExamensSub + '" data-type="' + esc(it) + '">' + esc(it) + '</button>').join('') + '</div></div>';
+    box.querySelectorAll('.exam-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        prefillExamType = { categorie: EXAM_CATALOG[chip.dataset.cat].label, type: chip.dataset.type };
+        activeExamensSub = 'demandes';
+        renderExamensNav();
+      });
+    });
+    return;
+  }
+  // Sub-tab: Demandes d'examen
+  box.innerHTML = '<div class="card"><h2>Rechercher un patient</h2><div class="picker-box"><div class="field"><label>Nom du patient</label>' +
+    '<input id="examSearch" type="text" placeholder="Nom du patient…" autocomplete="off" /><div class="suggest-list hidden" id="examSuggest"></div></div></div></div>' +
+    '<div id="examPatientBox"></div>';
+  document.getElementById('examSearch').addEventListener('input', (e) => {
+    const f = e.target.value.trim().toLowerCase();
+    const sbox = document.getElementById('examSuggest');
+    if(!f){ sbox.classList.add('hidden'); sbox.innerHTML=''; return; }
+    const matches = Object.values(db.patients).filter(p => (p.nom||'').toLowerCase().includes(f)).slice(0,8);
+    if(matches.length === 0){ sbox.classList.add('hidden'); return; }
+    sbox.innerHTML = matches.map(p => '<div class="suggest-item" data-id="' + p.id + '">' + esc(p.nom) + '</div>').join('');
+    sbox.classList.remove('hidden');
+    sbox.querySelectorAll('.suggest-item').forEach(it => {
+      it.addEventListener('click', () => { document.getElementById('examSearch').value=''; sbox.classList.add('hidden'); selectedExamensPatientId = it.dataset.id; renderExamPatientBox(); });
+    });
+  });
+  if(selectedExamensPatientId) renderExamPatientBox();
+}
+function examOptionsHtml(){
+  return Object.keys(EXAM_CATALOG).map(k => {
+    const cat = EXAM_CATALOG[k];
+    return '<optgroup label="' + esc(cat.label) + '">' + cat.items.map(it => {
+      const sel = prefillExamType && prefillExamType.type === it ? ' selected' : '';
+      return '<option value="' + esc(it) + '|' + esc(cat.label) + '"' + sel + '>' + esc(it) + '</option>';
+    }).join('') + '</optgroup>';
+  }).join('');
+}
+function examRowsHtml(p){
+  if(!p.examens || p.examens.length === 0) return '<p style="color:var(--ink-soft);font-size:13.5px;">Aucune demande d\'examen pour ce patient.</p>';
+  return p.examens.slice().reverse().map(ex => {
+    const prioClass = ex.priorite === 'Urgente' ? 'urgente' : (ex.priorite === 'Différée' ? 'differee' : 'normale');
+    const idx = EXAM_STATUTS.indexOf(ex.statut);
+    const next = idx >= 0 && idx < EXAM_STATUTS.length - 1 ? EXAM_STATUTS[idx+1] : null;
+    return '<div class="exam-row"><span class="exam-type">' + esc(ex.type) + '</span>' +
+      '<span style="font-size:12.5px;color:var(--ink-soft);">' + esc(ex.categorie) + '</span>' +
+      '<span style="font-size:12.5px;">' + esc(ex.region||'—') + '</span>' +
+      '<span class="prio-badge ' + prioClass + '">' + esc(ex.priorite) + '</span>' +
+      '<span class="exam-statut' + (ex.statut==='Réalisé'?' realise':'') + '">' + esc(ex.statut) + '</span>' +
+      '<span style="font-size:12px;color:var(--ink-soft);">' + esc(ex.date) + ' — ' + esc(ex.prescripteur||'—') + '</span>' +
+      (next ? '<button class="btn ghost small exam-advance" data-id="' + ex.id + '" data-next="' + next + '">Marquer : ' + next + '</button>' : '') +
+      '</div>';
+  }).join('');
+}
+function renderExamPatientBox(){
+  const box = document.getElementById('examPatientBox');
+  const p = db.patients[selectedExamensPatientId];
+  if(!p){ box.innerHTML=''; return; }
+  let html = steleHtml(p);
+  if(currentRole === 'medecin'){
+    html += '<div class="card"><h2>Nouvelle demande d\'examen</h2><div class="grid">' +
+      '<div class="field"><label>Type d\'examen</label><select id="ex-type">' + examOptionsHtml() + '</select></div>' +
+      field_("Région de l'examen",'ex-region','') +
+      '<div class="field"><label>Priorité</label><select id="ex-priorite"><option>Normale</option><option>Urgente</option><option>Différée</option></select></div>' +
+      field_('Prescripteur','ex-prescripteur',currentUser) +
+      textField_('Motif','ex-motif','') +
+      '</div><button class="btn small" id="btnAddExamen">Créer la demande</button></div>';
+  }
+  html += '<div class="card"><h2>Demandes en cours et historique</h2>' + examRowsHtml(p) + '</div>';
+  box.innerHTML = html;
+
+  if(currentRole === 'medecin'){
+    document.getElementById('btnAddExamen').addEventListener('click', async () => {
+      const raw = document.getElementById('ex-type').value;
+      const [type, categorie] = raw.split('|');
+      await withLoading("Transmission de la demande d'examen…", async () => {
+        p.examens.push({ id: genId('X'), type, categorie, region: document.getElementById('ex-region').value,
+          priorite: document.getElementById('ex-priorite').value, motif: document.getElementById('ex-motif').value,
+          prescripteur: document.getElementById('ex-prescripteur').value, statut: 'Demandé', date: todayISO() });
+        prefillExamType = null;
+        const ok = await saveDB();
+        if(ok){ showBanner("Demande d'examen créée.", 'ok'); renderExamPatientBox(); }
+      });
+    });
+  }
+  box.querySelectorAll('.exam-advance').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ex = p.examens.find(x => x.id === btn.dataset.id);
+      if(!ex) return;
+      await withLoading('Mise à jour du statut de l\'examen…', async () => {
+        ex.statut = btn.dataset.next;
+        const ok = await saveDB();
+        if(ok){ renderExamPatientBox(); }
+      });
+    });
+  });
+}
+
+const PROTOCOLS = {
+  urgences: { label: 'Urgences vitales', items: [
+    { titre: 'Arrêt cardio-respiratoire', definition: "Absence de conscience, absence de respiration normale, absence de pouls perceptible.", conduite: ["Vérifier la sécurité et l'état de conscience du patient.", "Alerter immédiatement l'Archiatros et appeler du renfort.", "Débuter sans délai les compressions thoraciques et les insufflations.", "Faire apporter le matériel d'urgence disponible à l'Asclépieion.", "Ne pas interrompre les compressions sauf réévaluation du rythme.", "Poursuivre jusqu'à reprise d'une activité efficace ou relève par un Iatros."], alerte: "Urgence absolue — informer aussi le Stratège si le patient est un phalangite en service." },
+    { titre: 'Choc anaphylactique', definition: "Réaction allergique généralisée et brutale : urticaire, œdème, difficulté respiratoire, chute de tension.", conduite: ["Retirer l'allergène si identifiable (piqûre, aliment, substance divine).", "Allonger le patient, jambes surélevées, sauf détresse respiratoire.", "Débuter le traitement d'urgence prévu par le protocole du service dès les premiers signes.", "Surveiller étroitement la respiration et la tension.", "Réévaluer fréquemment : une récidive est possible dans les heures suivantes."], alerte: "Prévenir un Iatros sans délai." },
+    { titre: 'Choc septique', definition: "Infection sévère entraînant une chute de tension et une défaillance des organes.", conduite: ["Rechercher la porte d'entrée infectieuse.", "Surveiller température, tension, fréquence cardiaque et état de conscience.", "Débuter le remplissage vasculaire et l'antibiothérapie probabiliste dès prescription.", "Surveiller la diurèse.", "Réévaluer fréquemment l'évolution clinique."], alerte: "Situation grave — Archiatros à prévenir sans délai." },
+    { titre: 'AVC (accident vasculaire cérébral)', definition: "Déficit neurologique brutal : faiblesse d'un côté du corps, trouble de la parole ou du visage.", conduite: ["Noter précisément l'heure de début des symptômes.", "Ne rien donner par la bouche.", "Allonger le patient, tête légèrement surélevée.", "Surveiller la conscience et la respiration.", "Préparer un transfert rapide vers l'Iatros référent."], alerte: "Chaque minute compte — alerter immédiatement." },
+    { titre: 'Syndrome coronarien (douleur thoracique évocatrice)', definition: "Douleur thoracique intense, oppressante, pouvant irradier au bras ou à la mâchoire.", conduite: ["Mettre le patient au repos strict, en position semi-assise.", "Surveiller le pouls et la respiration.", "Réaliser un ECG dès que possible.", "Ne pas laisser le patient seul.", "Préparer l'oxygénothérapie et les antalgiques selon prescription."], alerte: "Prévenir l'Iatros immédiatement." },
+    { titre: 'Détresse respiratoire', definition: "Difficulté à respirer, essoufflement marqué, parfois coloration bleutée des lèvres.", conduite: ["Installer le patient en position semi-assise ou assise.", "Libérer les voies aériennes.", "Surveiller la fréquence respiratoire et la coloration.", "Débuter l'oxygénothérapie selon protocole.", "Rester auprès du patient jusqu'à stabilisation."], alerte: "Prévenir un Iatros sans délai si aggravation." },
+    { titre: "Crise d'épilepsie", definition: "Convulsions généralisées avec perte de conscience brève.", conduite: ["Protéger la tête, écarter les objets dangereux.", "Ne rien introduire dans la bouche.", "Noter l'heure de début et la durée de la crise.", "Mettre en position latérale de sécurité après la fin des convulsions.", "Surveiller le retour progressif à la conscience."], alerte: "Alerter un Iatros si la crise dure plus de 5 minutes ou se répète." },
+    { titre: 'Polytraumatisé', definition: "Patient présentant plusieurs lésions traumatiques potentiellement graves.", conduite: ["Ne pas mobiliser inutilement, suspecter une atteinte de la colonne.", "Évaluer conscience, respiration et circulation.", "Contrôler les hémorragies visibles.", "Surveiller en continu les constantes.", "Préparer un transfert vers l'Archiatros."], alerte: "Urgence vitale — mobiliser toute l'équipe disponible." },
+    { titre: 'Hémorragie massive', definition: "Perte de sang importante et rapide, mettant en jeu le pronostic vital.", conduite: ["Comprimer directement et fermement le point de saignement.", "Allonger le patient, jambes surélevées si possible.", "Surveiller le pouls et l'état de conscience.", "Préparer une transfusion selon prescription.", "Ne pas relâcher la compression avant l'arrivée d'un Iatros."], alerte: "Urgence absolue." }
+  ]},
+  traitements: { label: 'Traitements', items: [
+    { titre: "Prescription d'antalgiques", definition: "Traitement de la douleur, adapté à son intensité.", conduite: ["Évaluer l'intensité de la douleur avec l'échelle du service.", "Le choix de la classe d'antalgique reste de la responsabilité de l'Iatros prescripteur.", "Réévaluer régulièrement l'efficacité du traitement.", "Surveiller l'apparition d'éventuels effets indésirables."], alerte: "Toute prescription reste de la responsabilité de l'Iatros signataire." },
+    { titre: 'Antibiothérapie probabiliste', definition: "Traitement antibiotique débuté avant l'identification précise du germe, sur la base des signes cliniques.", conduite: ["Réaliser les prélèvements nécessaires avant la première dose si possible.", "Débuter le traitement prescrit sans délai en cas de sepsis suspecté.", "Réévaluer à 48-72h à la lumière des résultats des prélèvements.", "Surveiller la tolérance du traitement."], alerte: "Réévaluation systématique par un Iatros." },
+    { titre: 'Insulinothérapie', definition: "Traitement du déséquilibre glycémique par insuline.", conduite: ["Surveiller la glycémie capillaire selon le rythme prescrit.", "Administrer selon le protocole et la prescription du service.", "Surveiller les signes d'hypoglycémie : sueurs, tremblements, confusion.", "Toute adaptation de dose relève du médecin."], alerte: "Ajustement des doses réservé à l'Iatros." },
+    { titre: 'Anticoagulants', definition: "Traitement prévenant ou traitant la formation de caillots sanguins.", conduite: ["Vérifier l'absence de contre-indication (saignement actif, traumatisme récent).", "Administrer selon la prescription en cours.", "Surveiller l'apparition de signes de saignement.", "Bilan de coagulation selon le protocole du service."], alerte: "Toute modification de dose relève de l'Iatros." },
+    { titre: 'Oxygénothérapie', definition: "Apport d'oxygène complémentaire en cas de détresse respiratoire ou de saturation basse.", conduite: ["Installer le dispositif adapté (lunettes, masque).", "Surveiller la saturation et la fréquence respiratoire.", "Adapter le débit selon la prescription.", "Surveiller la tolérance (sécheresse, anxiété)."], alerte: "Débit initial et cible fixés par l'Iatros." },
+    { titre: 'Transfusion sanguine', definition: "Apport de produits sanguins en cas d'anémie sévère ou d'hémorragie.", conduite: ["Vérifier la compatibilité et l'identité du patient avant toute transfusion.", "Surveiller étroitement les premières minutes (risque de réaction).", "Surveiller les constantes régulièrement pendant toute la durée.", "Consigner précisément l'administration dans le dossier."], alerte: "Décision et prescription réservées à l'Iatros." }
+  ]},
+  infirmiers: { label: 'Protocoles infirmiers', items: [
+    { titre: 'Pose d\'une perfusion', definition: "Mise en place d'un accès veineux pour l'administration de traitements ou de solutés.", conduite: ["Vérifier la prescription avant tout geste.", "Désinfecter soigneusement la zone de ponction.", "Poser le cathéter dans des conditions d'asepsie strictes.", "Vérifier le bon reflux et la perméabilité de la voie.", "Fixer et dater la pose, surveiller le point d'insertion régulièrement."] },
+    { titre: 'Prélèvement sanguin', definition: "Recueil d'un échantillon de sang à des fins d'analyse.", conduite: ["Vérifier la prescription et l'identité du patient.", "Respecter l'asepsie du geste.", "Choisir un site de ponction adapté.", "Étiqueter immédiatement les tubes prélevés.", "Acheminer sans délai les prélèvements vers l'Infirmerie."] },
+    { titre: "Pose d'une sonde urinaire", definition: "Mise en place d'un dispositif de drainage urinaire.", conduite: ["Vérifier l'indication et la prescription du geste.", "Respecter strictement l'asepsie.", "Installer le patient confortablement.", "Vérifier l'écoulement des urines après la pose.", "Surveiller les signes d'infection dans les jours suivants."] },
+    { titre: "Réalisation d'un ECG", definition: "Enregistrement de l'activité électrique du cœur.", conduite: ["Installer le patient au calme, allongé.", "Placer les électrodes selon le schéma standard.", "Vérifier la qualité du tracé avant impression.", "Transmettre immédiatement à l'Iatros en cas d'anomalie visible."] },
+    { titre: 'Glycémie capillaire', definition: "Mesure rapide du taux de sucre dans le sang.", conduite: ["Désinfecter le bout du doigt.", "Piquer et recueillir la goutte de sang.", "Lire le résultat sur le lecteur.", "Noter la valeur et alerter en cas de résultat hors des normes du service."] },
+    { titre: 'Changement de pansement', definition: "Renouvellement du pansement d'une plaie.", conduite: ["Retirer l'ancien pansement avec douceur.", "Observer l'aspect de la plaie : couleur, odeur, écoulement.", "Nettoyer selon le protocole du service.", "Appliquer le nouveau pansement.", "Noter l'évolution de la plaie dans le dossier."] },
+    { titre: 'Surveillance postopératoire', definition: "Suivi rapproché du patient après une intervention.", conduite: ["Surveiller les constantes à intervalles rapprochés.", "Surveiller le pansement et les drains éventuels.", "Évaluer la douleur régulièrement.", "Surveiller la reprise de conscience et la tolérance digestive.", "Alerter en cas d'anomalie constatée."] }
+  ]},
+  hygiene: { label: 'Hygiène', items: [
+    { titre: 'Lavage des mains', definition: "Geste de base de prévention des infections.", conduite: ["Se laver les mains avant et après chaque contact avec un patient.", "Utiliser eau et savon ou solution hydroalcoolique.", "Respecter la durée recommandée du lavage.", "Se laver systématiquement après le retrait des gants."] },
+    { titre: 'Précautions standard', definition: "Ensemble des mesures d'hygiène appliquées à tout patient, quel que soit son statut infectieux connu.", conduite: ["Porter des gants pour tout contact avec des liquides biologiques.", "Pratiquer l'hygiène des mains systématiquement.", "Porter une blouse en cas de risque de projection.", "Éliminer immédiatement le matériel piquant ou coupant dans le collecteur dédié."] },
+    { titre: 'Isolement contact', definition: "Mesures visant à éviter la transmission par contact direct ou indirect.", conduite: ["Installer le patient en chambre individuelle si possible.", "Porter gants et surblouse pour tout soin.", "Réserver un matériel dédié au patient.", "Renforcer l'hygiène des mains à chaque sortie de chambre."] },
+    { titre: 'Isolement gouttelettes', definition: "Mesures visant à éviter la transmission par gouttelettes respiratoires.", conduite: ["Installer le patient en chambre individuelle.", "Porter un masque chirurgical, faire porter un masque au patient en cas de déplacement.", "Limiter les visites autant que possible.", "Renforcer l'hygiène des mains."] },
+    { titre: 'Isolement aérien', definition: "Mesures visant à éviter la transmission par voie aérienne.", conduite: ["Installer le patient en chambre individuelle, porte fermée.", "Porter un masque de protection renforcée.", "Limiter au maximum les déplacements du patient hors de la chambre.", "Renforcer l'hygiène des mains."] },
+    { titre: "Gestion des DASRI", definition: "Élimination sécurisée des déchets d'activités de soins à risque infectieux.", conduite: ["Utiliser systématiquement les collecteurs dédiés.", "Ne jamais recapuchonner une aiguille usagée.", "Fermer et évacuer les collecteurs pleins selon le circuit prévu.", "Porter des gants pour toute manipulation de déchets."] }
+  ]},
+  examens: { label: 'Examens', items: [
+    { titre: 'Gaz du sang', definition: "Analyse de l'oxygénation et de l'équilibre acido-basique du sang.", conduite: ["Réaliser le prélèvement artériel selon le protocole du service.", "Acheminer immédiatement l'échantillon au laboratoire.", "Noter précisément l'heure du prélèvement."] },
+    { titre: 'ECG 12 dérivations', definition: "Enregistrement complet de l'activité électrique cardiaque.", conduite: ["Installer les 12 électrodes selon le schéma standard.", "Maintenir le patient au repos et immobile pendant l'examen.", "Vérifier la qualité du tracé.", "Transmettre immédiatement le tracé à l'Iatros."] },
+    { titre: 'Hémoculture', definition: "Prélèvement sanguin à la recherche d'une infection généralisée.", conduite: ["Prélever si possible avant toute antibiothérapie.", "Respecter strictement l'asepsie cutanée.", "Remplir les flacons dans l'ordre prescrit.", "Acheminer rapidement les prélèvements."] },
+    { titre: 'Ponction lombaire', definition: "Prélèvement de liquide céphalo-rachidien à visée diagnostique.", conduite: ["Vérifier l'absence de contre-indication avant le geste.", "Installer le patient en position adaptée.", "Le geste est réalisé par l'Iatros dans des conditions d'asepsie strictes.", "Surveiller le patient après le geste : repos, hydratation, surveillance de céphalées."] },
+    { titre: 'Prélèvements microbiologiques', definition: "Recueil d'échantillons à la recherche d'un agent infectieux.", conduite: ["Identifier précisément le site prélevé.", "Respecter l'asepsie du prélèvement.", "Étiqueter immédiatement l'échantillon.", "Acheminer rapidement au laboratoire avec la demande d'analyse renseignée."] }
+  ]},
+  hospitalisation: { label: 'Hospitalisation', items: [
+    { titre: "Admission d'un patient", definition: "Accueil et enregistrement d'un patient hospitalisé.", conduite: ["Vérifier ou créer le dossier médical du patient.", "Recueillir les informations d'identité et les antécédents.", "Informer le patient du déroulement de son séjour.", "Ouvrir une fiche d'hospitalisation dans le dossier."] },
+    { titre: "Sortie d'hospitalisation", definition: "Fin du séjour hospitalier du patient.", conduite: ["Vérifier la stabilité clinique avant la sortie.", "Remettre les documents nécessaires : ordonnances, certificats.", "Informer le patient des consignes de suivi.", "Clôturer la fiche d'hospitalisation dans le dossier."] },
+    { titre: 'Transfert vers un autre service', definition: "Changement de lieu de prise en charge du patient.", conduite: ["Vérifier la stabilité du patient avant le transfert.", "Transmettre le dossier complet et les informations essentielles au service receveur.", "Accompagner le patient si nécessaire."] },
+    { titre: 'Consentement aux soins', definition: "Accord du patient, ou de son tuteur pour un mineur, avant tout acte médical.", conduite: ["Informer clairement le patient des soins proposés, de leurs bénéfices et de leurs risques.", "Recueillir l'accord avant tout acte non urgent.", "Respecter le refus de soin, sauf urgence vitale.", "Pour un mineur, informer et recueillir l'accord du tuteur de cabane."] }
+  ]}
+};
+let activeProtoCat = 'urgences';
+function renderProtoNav(){
+  const nav = document.getElementById('protoNav');
+  nav.innerHTML = Object.keys(PROTOCOLS).map(k => '<button class="proto-tab' + (k===activeProtoCat?' active':'') + '" data-cat="' + k + '">' + PROTOCOLS[k].label + '</button>').join('');
+  nav.querySelectorAll('.proto-tab').forEach(b => b.addEventListener('click', () => { activeProtoCat = b.dataset.cat; renderProtoNav(); renderProtoList(); }));
+}
+function renderProtoList(){
+  const list = document.getElementById('protoList');
+  const items = PROTOCOLS[activeProtoCat].items;
+  list.innerHTML = items.map((it, idx) => (
+    '<div class="proto-card"><button class="proto-head" data-idx="' + idx + '">' + esc(it.titre) + '<span class="chev">›</span></button>' +
+    '<div class="proto-body hidden"><p class="proto-def">' + esc(it.definition) + '</p><ul>' + it.conduite.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul>' +
+    (it.alerte ? '<p class="proto-alert">⚠ ' + esc(it.alerte) + '</p>' : '') + '</div></div>'
+  )).join('');
+  list.querySelectorAll('.proto-head').forEach(btn => {
+    btn.addEventListener('click', () => { btn.nextElementSibling.classList.toggle('hidden'); btn.classList.toggle('open'); });
+  });
+}
+
+(async function init(){
+  await loadDB();
+  await loadStaff();
+  await loadPresence();
+  await loadOps();
+  updateStatPill();
+  renderSearchResults('');
+  renderProtoNav();
+  renderProtoList();
+})();
+</script>
+</body>
+</html>
